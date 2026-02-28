@@ -24,7 +24,7 @@ const PrePhase2Transition = ({ onComplete, theme }) => {
         return () => window.removeEventListener('resize', updateWidth);
     }, []);
 
-    const SLIDER_WIDTH = Math.min(360, containerWidth - 32 || 360);
+    const SLIDER_WIDTH = containerWidth > 0 ? Math.min(360, containerWidth - 32) : 360;
     const HANDLE_WIDTH = 56;
     const MAX_SLIDE = SLIDER_WIDTH - HANDLE_WIDTH - 8;
 

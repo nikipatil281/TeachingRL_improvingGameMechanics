@@ -276,7 +276,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName }) => {
 
   const handleNextWeek = () => {
     setWeeklyModalOpen(false);
-    onComplete(); // Proceed to Phase 2 (Main Game) after seeing the report
+    if (onComplete) onComplete();
   };
 
   const handleBackToTutorial = () => {
