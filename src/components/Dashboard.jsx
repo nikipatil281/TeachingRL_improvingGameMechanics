@@ -20,28 +20,18 @@ import {
 import { getMLPrice, getMLFormula, initMLModel } from "../logic/MLAgent";
 import { rlAgent } from "../logic/RLAgent";
 
-const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weather: true, event: true, competitor: true }, onRestart }) => {
-  // Helper to apply user's config constraints to conditions
-  const applyConfig = (conds) => {
-    return {
-      ...conds,
-      weather: gameConfig.weather ? conds.weather : "sunny",
-      nearbyEvent: gameConfig.event ? conds.nearbyEvent : false,
-      competitorPresent: gameConfig.competitor ? conds.competitorPresent : false,
-      competitorPrice: gameConfig.competitor ? conds.competitorPrice : null
-    };
-  };
+const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
 
   // Game State
   const [day, setDay] = useState(1);
-  const [conditions, setConditions] = useState(applyConfig(generateMainGameConditions(1)));
+  const [conditions, setConditions] = useState(generateMainGameConditions(1));
   const [playerPrice, setPlayerPrice] = useState(4.5);
 
   // Independent Weekly Inventories for Phase 2
-  const [playerInventory, setPlayerInventory] = useState(1000);
-  const [mlInventory, setMlInventory] = useState(1000);
-  const [rlInventory, setRlInventory] = useState(1000);
-  const [competitorInventory, setCompetitorInventory] = useState(1000);
+  const [playerInventory, setPlayerInventory] = useState(1500);
+  const [mlInventory, setMlInventory] = useState(1500);
+  const [rlInventory, setRlInventory] = useState(1500);
+  const [competitorInventory, setCompetitorInventory] = useState(1500);
 
   const [history, setHistory] = useState([
     {
@@ -107,12 +97,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
     setMlReady(true);
   }, []);
 
-  // 2. Update Suggestions when conditions change
-  useEffect(() => {
-    updateSuggestions();
-  }, [conditions, mlReady]);
-
-  const updateSuggestions = async () => {
+  async function updateSuggestions() {
     // Async ML prediction (incorporates the potentially forced config conditions)
     const mlP = await getMLPrice(
       conditions.weather,
@@ -123,16 +108,21 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
 
     // RL prediction (using JSON logic based on active configs)
     const rlResult = rlAgent.getAction(
-      conditions,
-      gameConfig
+      conditions
     );
     setRLSuggestion(rlResult);
   };
+
+  // 2. Update Suggestions when conditions change
+  useEffect(() => {
+    updateSuggestions();
+  }, [conditions, mlReady]);
 
   const handleStartDay = () => {
     if (!gameActive) return;
 
     // 1. Calculate Player Results
+    const yesterdayPlayerPrice = history[history.length - 1]?.playerPrice;
     const playerDemand = calculateDemand(
       playerPrice,
       conditions.weather,
@@ -140,12 +130,14 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
       conditions.day,
       conditions.competitorPresent,
       conditions.competitorPrice,
+      yesterdayPlayerPrice
     );
     const playerSales = calculateSales(playerDemand, playerInventory);
     const playerRevenue = playerSales * playerPrice;
 
     // 2. Calculate ML Results
     const mlPrice = mlSuggestion;
+    const yesterdayMlPrice = history[history.length - 1]?.mlPrice;
     const mlDemand = calculateDemand(
       mlPrice,
       conditions.weather,
@@ -153,6 +145,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
       conditions.day,
       conditions.competitorPresent,
       conditions.competitorPrice,
+      yesterdayMlPrice
     );
     // ML act on its own inventory
     const mlSales = calculateSales(mlDemand, mlInventory);
@@ -160,6 +153,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
 
     // 3. Calculate RL Results
     const rlPrice = rlSuggestion.price;
+    const yesterdayRlPrice = history[history.length - 1]?.rlPrice;
     const rlDemand = calculateDemand(
       rlPrice,
       conditions.weather,
@@ -167,6 +161,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
       conditions.day,
       conditions.competitorPresent,
       conditions.competitorPrice,
+      yesterdayRlPrice
     );
     const rlSales = calculateSales(rlDemand, rlInventory);
     const rlRevenue = rlSales * rlPrice;
@@ -186,13 +181,15 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
     if (conditions.competitorPresent && conditions.competitorPrice) {
       // The competitor is just another genuine seller in the exact same market.
       // Their demand is calculated identically, treating the player as *their* competitor.
+      const yesterdayCompPrice = history[history.length - 1]?.competitorPrice;
       const cDemand = calculateDemand(
         conditions.competitorPrice,
         conditions.weather,
         conditions.nearbyEvent,
         conditions.day,
         true, // Player is present
-        playerPrice // Player's price acts as the competitor price against them
+        playerPrice, // Player's price acts as the competitor price against them
+        yesterdayCompPrice
       );
 
       // Apply Inventory Cap (Fairness)
@@ -440,17 +437,17 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
     advanceDay(pendingNextDayStr.nextDayNum, pendingNextDayStr.pInv, pendingNextDayStr.mInv, pendingNextDayStr.rInv, pendingNextDayStr.cInv);
   };
 
-  const advanceDay = (nextDayNum, pInv = 1000, mInv = 1000, rInv = 1000, cInv = 1000) => {
+  const advanceDay = (nextDayNum, pInv = 1500, mInv = 1500, rInv = 1500, cInv = 1500) => {
     setDay(nextDayNum);
-    const nextConditions = applyConfig(generateMainGameConditions(nextDayNum));
+    const nextConditions = generateMainGameConditions(nextDayNum);
     setConditions(nextConditions);
 
     // Weekly Refill logic
     if (nextDayNum % 7 === 1) {
-      setPlayerInventory(1000);
-      setMlInventory(1000);
-      setRlInventory(1000);
-      setCompetitorInventory(1000);
+      setPlayerInventory(1500);
+      setMlInventory(1500);
+      setRlInventory(1500);
+      setCompetitorInventory(1500);
     } else {
       setPlayerInventory(pInv);
       setMlInventory(mInv);
@@ -535,7 +532,6 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
       <PolicyReviewPage
         history={history}
         shopName={shopName}
-        gameConfig={gameConfig}
         onBackToDebrief={() => setShowPolicyPage(false)}
         theme={theme}
       />
@@ -612,9 +608,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
                 inventory={playerInventory}
                 nearbyEvent={conditions.nearbyEvent}
                 competitorPresent={conditions.competitorPresent}
-                competitorPrice={conditions.competitorPrice}
                 specialEvent={conditions.specialEvent}
-                gameConfig={gameConfig}
               />
             </div>
 
@@ -790,7 +784,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
             <div className="w-full flex-grow min-h-0 flex flex-col md:flex-row gap-4 lg:gap-6">
               <div className="md:w-1/2 bg-coffee-800/50 rounded-2xl border border-coffee-700/50 h-[350px] flex flex-col overflow-hidden">
                 <div className="flex-grow w-full">
-                  <ProfitChart data={history} showRLAgents={true} shopName={shopName} gameConfig={gameConfig} />
+                  <ProfitChart data={history} showRLAgents={true} shopName={shopName} hideRLLine={true} hideMLReward={true} />
                 </div>
               </div>
 
@@ -883,7 +877,6 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, gameConfig = { weat
         shopName={shopName}
         isTutorial={false}
         weekHistoryData={history.slice(-7)}
-        gameConfig={gameConfig}
       />
 
       <EmergencyRestockModal
