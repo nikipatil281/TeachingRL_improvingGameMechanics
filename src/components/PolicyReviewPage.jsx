@@ -1,12 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TableProperties, ArrowLeft, Download, Sun, Moon } from 'lucide-react';
+import { TableProperties, ArrowLeft, Download, Sun, Moon, RotateCcw } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import ProfitChart from './ProfitChart';
-import { rlAgent } from '../logic/RLAgent';
 
-const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameConfig }) => {
+const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRestart }) => {
     const reportRef = useRef(null);
     const [isExporting, setIsExporting] = useState(false);
 
@@ -79,26 +78,20 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameCo
         const stateKey = `${record.weather}_${record.nearbyEvent}_${record.competitorPresent}`;
 
         if (!playerPolicyMap[stateKey]) {
-            const conditions = {
-                weather: record.weather,
-                nearbyEvent: record.nearbyEvent,
-                competitorPresent: record.competitorPresent,
-                competitorPrice: record.competitorOriginalPrice || record.competitorPrice
-            };
-            const { minPrice, maxPrice } = rlAgent.getOptimalRange(conditions, gameConfig);
-
             playerPolicyMap[stateKey] = {
                 weather: record.weather,
                 event: record.nearbyEvent,
                 competitor: record.competitorPresent,
-                rlMinPrice: minPrice,
-                rlMaxPrice: maxPrice,
-                prices: []
+                prices: [],
+                rlPrices: []
             };
         }
 
         if (record.playerPrice) {
             playerPolicyMap[stateKey].prices.push(record.playerPrice);
+        }
+        if (record.rlPrice) {
+            playerPolicyMap[stateKey].rlPrices.push(record.rlPrice);
         }
     });
 
@@ -106,6 +99,8 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameCo
     const playerPolicyTable = Object.values(playerPolicyMap).map(state => {
         const minPrice = state.prices.length > 0 ? Math.min(...state.prices) : null;
         const maxPrice = state.prices.length > 0 ? Math.max(...state.prices) : null;
+        const rlMinPrice = state.rlPrices.length > 0 ? Math.min(...state.rlPrices) : null;
+        const rlMaxPrice = state.rlPrices.length > 0 ? Math.max(...state.rlPrices) : null;
 
         // Calculate frequency map for the prices string
         const freqs = state.prices.reduce((acc, p) => {
@@ -132,9 +127,11 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameCo
             ...state,
             minPrice,
             maxPrice,
-            rlRangeString: state.rlMinPrice === state.rlMaxPrice
-                ? `$${state.rlMinPrice?.toFixed(2)}`
-                : `$${state.rlMinPrice?.toFixed(2)} - $${state.rlMaxPrice?.toFixed(2)}`,
+            rlRangeString: rlMinPrice === null
+                ? 'N/A'
+                : rlMinPrice === rlMaxPrice
+                    ? `$${rlMinPrice.toFixed(2)}`
+                    : `$${rlMinPrice.toFixed(2)} - $${rlMaxPrice.toFixed(2)}`,
             distributionString,
             mostFrequentPrice,
             count: state.prices.length
@@ -156,6 +153,15 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameCo
                 </motion.button>
 
                 <div className="flex gap-4">
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onRestart}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-lg shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all flex items-center gap-2"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        Run Simulation Again
+                    </motion.button>
                     <button
                         onClick={toggleTheme}
                         className="p-2 bg-coffee-800/50 hover:bg-amber-500 hover:text-coffee-900 rounded-full border border-coffee-700/50 transition-all text-coffee-200"
@@ -179,12 +185,12 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameCo
             <div ref={reportRef} className="w-full max-w-6xl flex flex-col items-center bg-coffee-900 p-8 rounded-2xl border border-coffee-700 shadow-2xl relative">
                 <div className="flex items-center gap-3 mb-8">
                     <TableProperties className="w-8 h-8 text-emerald-400" />
-                    <h2 className="text-3xl font-bold text-coffee-100">RL Optimal Policy Review</h2>
+                    <h2 className="text-3xl font-bold text-coffee-100">Reinforcement Learning Optimal Policy Review</h2>
                 </div>
 
                 {/* Final Chart Stretched - NOW USING PROFIT CHART */}
                 <div className="w-full h-[550px] mb-8">
-                    <ProfitChart data={history} showRLAgents={true} gameConfig={gameConfig} />
+                    <ProfitChart data={history} showRLAgents={true} />
                 </div>
 
                 {/* Player Policy Summary Table */}
@@ -192,9 +198,9 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameCo
                     <div className="p-4 bg-coffee-900/50 border-b border-coffee-700">
                         <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
                             <TableProperties className="w-5 h-5" />
-                            Your Pricing Policy Summary
+                            Pricing Policy Summary
                         </h3>
-                        <p className="text-xs text-coffee-400 mt-1">Discover your revealed preference across different market states. All variables that affect demand are accounted for.</p>
+                        <p className="text-xs text-coffee-400 mt-1">Discover the prefered price range across different market states. Variables that affect demand are accounted for.</p>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -205,7 +211,7 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameCo
                                     <th className="px-4 py-3 font-bold border-b border-coffee-700 text-center">Local Event</th>
                                     <th className="px-4 py-3 font-bold border-b border-coffee-700 text-center">Competitor</th>
                                     <th className="px-4 py-3 font-bold border-b border-coffee-700 text-right">Price Range</th>
-                                    <th className="px-4 py-3 font-bold border-b border-coffee-700 text-right text-emerald-400">RL's Optimal Range</th>
+                                    <th className="px-4 py-3 font-bold border-b border-coffee-700 text-right text-emerald-400">RL's Actual Range</th>
                                     <th className="px-4 py-3 font-bold border-b border-coffee-700 text-right text-amber-400">Distribution</th>
                                 </tr>
                             </thead>
@@ -214,7 +220,7 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, gameCo
                                     playerPolicyTable.sort((a, b) => b.count - a.count).map((state, idx) => (
                                         <tr key={idx} className="hover:bg-coffee-700/20 transition-colors">
                                             <td className="px-4 py-3 whitespace-nowrap">
-                                                <span className={`font-medium px-2 py-1 rounded bg-coffee-900 border border-coffee-700 ${['Sunny', 'Hot'].includes(state.weather) ? 'text-amber-400' : 'text-blue-300'}`}>
+                                                <span className={`font-medium px-2 py-1 rounded bg-coffee-900 border border-coffee-700 ${state.weather === 'Sunny' ? 'text-amber-400' : 'text-blue-300'}`}>
                                                     {state.weather}
                                                 </span>
                                             </td>

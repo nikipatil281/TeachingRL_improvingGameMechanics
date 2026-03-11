@@ -1,219 +1,250 @@
-export const calculateDemand = (price, weather, nearbyEvent, day, competitorPresent, competitorPrice, yesterdayPrice) => {
-    let demand = 120; // Base baseline
+import marketStates from '../../market_states.json' with { type: 'json' };
 
-    // 1. Weather impacts
-    if (weather === 'Hot') {
-        demand -= 10; // Softened penalty so it doesn't instantly zero out
-    } else if (weather === 'Sunny') {
-        demand += 10;
-    } else if (weather === 'Cloudy') {
-        demand += 60; // 60 for cloudy
-    } else if (weather === 'Rainy') {
-        demand += 30; // 30 for rainy
+// Pre-calculated schedule for the 28-day simulation
+let mainGameSchedule = null;
+
+const LOCAL_EVENTS = [
+    "Music Concert",
+    "Movie Screening",
+    "Carnival",
+    "Food Fest",
+    "Local Marathon",
+    "Street Fair",
+    "Art Exhibition"
+];
+
+const getRandomEventName = () => LOCAL_EVENTS[Math.floor(Math.random() * LOCAL_EVENTS.length)];
+
+const evaluateFormula = (formula, context = {}) => {
+    if (!formula || typeof formula !== 'string') return 0;
+
+    try {
+        const argNames = Object.keys(context);
+        const argValues = Object.values(context);
+        return Function(...argNames, `"use strict"; return (${formula});`)(...argValues);
+    } catch (error) {
+        console.warn('[MarketEngine] Formula evaluation failed:', formula, error);
+        return 0;
     }
+};
 
-    // 2. Events always boost foot traffic
-    if (nearbyEvent) demand += 50; // Increased to 50
+const splitTopLevelByPlus = (formula) => {
+    const terms = [];
+    let depth = 0;
+    let start = 0;
 
-    // 3. Weekends have slightly more relaxed customers
-    if (day === 'Saturday' || day === 'Sunday') {
-        demand += 20;
-    } else if (day === 'Wednesday') {
-        demand -= 10; // Wednesday penalty
-    }
+    for (let i = 0; i < formula.length; i++) {
+        const ch = formula[i];
+        if (ch === '(') depth += 1;
+        if (ch === ')') depth -= 1;
 
-    // 4. Price Elasticity (Strict linear relationship)
-    // Higher price strictly means fewer customers
-    demand -= (price * 15);
-
-    // 5. Price changes relative to yesterday
-    if (yesterdayPrice !== undefined && yesterdayPrice !== null && yesterdayPrice !== 0 && yesterdayPrice !== "Start") {
-        if (price > yesterdayPrice) {
-            demand -= (Math.floor(Math.random() * 2) + 1); // 1-2 people less
-        } else if (price < yesterdayPrice) {
-            demand += (Math.floor(Math.random() * 2) + 1); // 1-2 people more
+        if (ch === '+' && depth === 0) {
+            terms.push(formula.slice(start, i).trim());
+            start = i + 1;
         }
     }
 
-    // Prevent negative intermediate demand before competitor multipliers
-    demand = Math.max(0, demand);
+    terms.push(formula.slice(start).trim());
+    return terms.filter(Boolean);
+};
 
-    // 6. Competitor interaction
-    // "For every 1 dollar more than the competitor, the user loses 10-15 customers."
-    // "For every 1 dollar less than the competitor, the user gains 10-15 customers."
-    if (competitorPresent && competitorPrice) {
-        const diff = price - competitorPrice;
-        if (diff > 0) {
-            // More expensive than competitor
-            const penaltyPerDollar = Math.floor(Math.random() * 6) + 10; // 10 to 15
-            demand -= diff * penaltyPerDollar;
-        } else if (diff < 0) {
-            // Cheaper than competitor
-            const boostPerDollar = Math.floor(Math.random() * 6) + 10; // 10 to 15
-            demand += Math.abs(diff) * boostPerDollar;
+const findMatchingMarketState = (weather, nearbyEvent, competitorPresent, dayName) => {
+    return marketStates.find((s) =>
+        s.Weather.toLowerCase() === String(weather || '').toLowerCase() &&
+        s.Event.toLowerCase() === (nearbyEvent ? 'yes' : 'no') &&
+        s.Competitor.toLowerCase() === (competitorPresent ? 'yes' : 'no') &&
+        s['Day of the week'] === dayName
+    );
+};
+
+const shuffleArray = (array) => {
+    const newArr = [...array];
+    for (let i = newArr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+    }
+    return newArr;
+};
+
+export const initMainGameSchedule = (forceReset = false) => {
+    if (mainGameSchedule && !forceReset) return mainGameSchedule;
+
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const statesByDay = {};
+    days.forEach(d => {
+        statesByDay[d] = marketStates.filter(s => s['Day of the week'] === d);
+    });
+
+    let validSchedule = false;
+    let attempts = 0;
+    let newSchedule = new Array(28);
+
+    while (!validSchedule && attempts < 100) {
+        attempts++;
+        const chosenPairs = {};
+
+        // For each day of the week, pick 2 states and repeat each twice
+        days.forEach(dayName => {
+            const available = statesByDay[dayName];
+            const idx1 = Math.floor(Math.random() * available.length);
+            let idx2 = Math.floor(Math.random() * available.length);
+            while (idx2 === idx1) idx2 = Math.floor(Math.random() * available.length);
+
+            const states = [available[idx1], available[idx1], available[idx2], available[idx2]];
+            chosenPairs[dayName] = shuffleArray(states);
+        });
+
+        // Fill the 28-day schedule
+        for (let i = 0; i < 28; i++) {
+            const dayName = days[i % 7];
+            const weekIdx = Math.floor(i / 7);
+            newSchedule[i] = { ...chosenPairs[dayName][weekIdx], dayNumber: i + 1 };
+        }
+
+        // Validate constraints per week
+        let allWeeksValid = true;
+        for (let w = 0; w < 4; w++) {
+            const weekSlice = newSchedule.slice(w * 7, (w + 1) * 7);
+            const compCount = weekSlice.filter(s => s.Competitor.toLowerCase() === 'yes').length;
+            const eventCount = weekSlice.filter(s => s.Event.toLowerCase() === 'yes').length;
+
+            if (compCount < 3 || eventCount < 1) {
+                allWeeksValid = false;
+                break;
+            }
+        }
+
+        if (allWeeksValid) {
+            validSchedule = true;
         }
     }
 
-    // Ensure demand is non-negative and integer
-    return Math.max(0, Math.floor(demand));
+    mainGameSchedule = newSchedule;
+    return mainGameSchedule;
+};
+
+export const calculateDemand = (price, weather, nearbyEvent, day, competitorPresent, competitorPrice, yesterdayPrice = null) => {
+    const state = findMatchingMarketState(weather, nearbyEvent, competitorPresent, day);
+    const context = {
+        price,
+        yesterday_price: yesterdayPrice ?? 4.50,
+        competitor_price: competitorPrice || 0,
+        inventory: 1500
+    };
+
+    if (state?.Footfall) {
+        const demand = evaluateFormula(state.Footfall, context);
+        return Math.max(0, Math.floor(Number(demand) || 0));
+    }
+
+    return 0;
 };
 
 export const calculateSales = (demand, inventory) => {
     return Math.min(demand, inventory);
 };
 
-// Generate repeatable but "random" specific conditions
 export const generateDailyConditions = (dayNumber) => {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const dayName = days[(dayNumber - 1) % 7];
-
-    // Predictable semi-random weather sequence to ensure all states are hit
-    const weatherPattern = ['Sunny', 'Cloudy', 'Rainy', 'Hot', 'Sunny', 'Rainy', 'Cloudy'];
+    const weatherPattern = ['Sunny', 'Cloudy', 'Rainy', 'Sunny', 'Sunny', 'Rainy', 'Cloudy'];
     const weather = weatherPattern[(dayNumber - 1) % 7];
-
-    // Event pattern: fixed to Friday/Saturday to ensure perfect 7-day looping (seen 4x a month)
     const nearbyEvent = dayName === 'Friday' || dayName === 'Saturday';
-
-    // Competitor: Absent early week, present late week, perfectly repeating.
     const competitorPresent = ['Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].includes(dayName);
 
-    // Competitor Price Logic (Non-Deterministic Rule-Based)
     let competitorPrice = null;
     if (competitorPresent) {
-        if (weather === 'Rainy') {
-            competitorPrice = 4.50 + Math.random(); // 4.50 to 5.50
-        } else if (weather === 'Hot') {
-            competitorPrice = 3.00 + Math.random(); // 3.00 to 4.00
-        } else if (weather === 'Cloudy') {
-            competitorPrice = 5.50 + Math.random(); // 5.50 to 6.50
+        const w = weather.toLowerCase();
+        if (w === 'rainy') {
+            competitorPrice = [4.50, 5.00, 5.50][Math.floor(Math.random() * 3)];
+        } else if (w === 'cloudy') {
+            competitorPrice = [5.50, 6.00, 6.50][Math.floor(Math.random() * 3)];
+        } else if (w === 'sunny') {
+            competitorPrice = [4.00, 4.50, 5.00][Math.floor(Math.random() * 3)];
         } else {
-            competitorPrice = 4.00 + Math.random(); // Sunny 4.00 to 5.00
+            competitorPrice = 4.00;
         }
 
-        if (dayName === 'Saturday' || dayName === 'Sunday') {
-            competitorPrice += 0.50 + (Math.random() * 0.50); // 0.50 to 1.00
-        }
-        if (nearbyEvent) {
-            competitorPrice += 0.50 + (Math.random() * 0.50); // 0.50 to 1.00
-        }
-
-        competitorPrice = Math.round(competitorPrice * 100) / 100;
+        if (dayName === 'Saturday' || dayName === 'Sunday') competitorPrice += [0.50, 1.00][Math.floor(Math.random() * 2)];
+        if (nearbyEvent) competitorPrice += [0.50, 1.00][Math.floor(Math.random() * 2)];
     }
 
-    return {
-        day: dayName,
-        weather,
-        nearbyEvent,
-        competitorPresent,
-        competitorPrice
-    };
+    const eventName = nearbyEvent ? getRandomEventName() : null;
+
+    return { day: dayName, weather, nearbyEvent, eventName, competitorPresent, competitorPrice };
 };
 
 export const generateMainGameConditions = (dayNumber) => {
-    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const dayName = days[(dayNumber - 1) % 7];
+    const schedule = initMainGameSchedule();
+    const state = schedule[dayNumber - 1];
 
-    // Follow the 7-day pattern from Tutorial.jsx
-    const weatherPattern = ['Sunny', 'Sunny', 'Cloudy', 'Rainy', 'Rainy', 'Sunny', 'Rainy'];
-    const weather = weatherPattern[(dayNumber - 1) % 7];
-
-    // Events follow tutorial pattern (Tue and Sat)
-    const eventPattern = [false, true, false, false, false, true, false];
-    const nearbyEvent = eventPattern[(dayNumber - 1) % 7];
-
-    // Competitor enters the market on Day 4 and stays.
-    let competitorPresent = dayNumber >= 4;
+    // Map Competitor Price if needed (it wasn't in the JSON, we should generate it if Competitor is "yes")
     let competitorPrice = null;
-    let specialEvent = null;
-
-    if (competitorPresent) {
-        // 15% chance competitor is closed for random reasons
-        const isClosed = Math.random() < 0.15;
-
-        if (isClosed) {
-            competitorPresent = false;
-            const excuses = [
-                "Competitor electricity out.",
-                "Competitor barista unwell.",
-                "Competitor espresso machine broke.",
-                "Competitor closed for private event."
-            ];
-            specialEvent = excuses[Math.floor(Math.random() * excuses.length)];
+    if (state.Competitor.toLowerCase() === 'yes') {
+        const w = state.Weather.toLowerCase();
+        if (w === 'rainy') {
+            competitorPrice = [4.50, 5.00, 5.50][Math.floor(Math.random() * 3)];
+        } else if (w === 'cloudy') {
+            competitorPrice = [5.50, 6.00, 6.50][Math.floor(Math.random() * 3)];
         } else {
-            // Competitor Price Logic (Non-Deterministic Rule-Based)
-            if (weather === 'Rainy') {
-                competitorPrice = 4.50 + Math.random(); // 4.50 to 5.50
-            } else if (weather === 'Hot') {
-                competitorPrice = 3.00 + Math.random(); // 3.00 to 4.00
-            } else if (weather === 'Cloudy') {
-                competitorPrice = 5.50 + Math.random(); // 5.50 to 6.50
-            } else {
-                competitorPrice = 4.00 + Math.random(); // Sunny 4.00 to 5.00
-            }
+            competitorPrice = [4.00, 4.50, 5.00][Math.floor(Math.random() * 3)];
+        }
 
-            if (dayName === 'Saturday' || dayName === 'Sunday') {
-                competitorPrice += 0.50 + (Math.random() * 0.50); // 0.50 to 1.00
-            }
-            if (nearbyEvent) {
-                competitorPrice += 0.50 + (Math.random() * 0.50); // 0.50 to 1.00
-            }
-
-            competitorPrice = Math.round(competitorPrice * 100) / 100;
+        if (state['Day of the week'] === 'Saturday' || state['Day of the week'] === 'Sunday') {
+            competitorPrice += [0.50, 1.00][Math.floor(Math.random() * 2)];
+        }
+        if (state.Event.toLowerCase() === 'yes') {
+            competitorPrice += [0.50, 1.00][Math.floor(Math.random() * 2)];
         }
     }
 
     return {
-        day: dayName,
-        weather,
-        nearbyEvent,
-        competitorPresent,
+        dayNumber,
+        day: state['Day of the week'],
+        weather: state.Weather.charAt(0).toUpperCase() + state.Weather.slice(1),
+        nearbyEvent: state.Event.toLowerCase() === 'yes',
+        competitorPresent: state.Competitor.toLowerCase() === 'yes',
         competitorPrice,
-        specialEvent
+        eventName: state.Event.toLowerCase() === 'yes' ? getRandomEventName() : null,
+        specialEvent: null, // We can add back random excuses if desired, but user didn't ask
+        stateId: state.Weather + state.Event + state.Competitor + state['Day of the week'] // Include day for specific matching
     };
 };
 
-export const calculateReward = (dailyProfit, remainingInventory, dayName, playerPrice, competitorPresent, competitorPrice) => {
+export const calculateReward = (dailyProfit, remainingInventory, dayName, playerPrice, competitorPresent, competitorPrice, yesterdayPrice, weather, nearbyEvent) => {
+    let totalScore = 0;
     let rewardPoints = 0;
+    let penaltyPoints = 0;
 
-    // 1. Normalized Profit Base
-    // E.g., $250 profit = +5.0 Points
-    rewardPoints += (dailyProfit / 50);
+    const state = findMatchingMarketState(weather, nearbyEvent, competitorPresent, dayName);
+    const context = {
+        profit: dailyProfit,
+        inventory: remainingInventory,
+        price: playerPrice,
+        competitor_price: competitorPrice || 0,
+        yesterday_price: yesterdayPrice ?? 4.50
+    };
 
-    // 2. Inventory Margin Bounds
-    // Mon-Wed: > 500
-    // Thu-Fri: 300 - 500
-    // Sat-Sun: 100 - 300
-    if (remainingInventory <= 0) {
-        rewardPoints -= 5.0; // Critical stockout penalty
+    if (state?.Rewards) {
+        const total = Number(evaluateFormula(state.Rewards, context)) || 0;
+        totalScore = total;
+
+        const rewardTerms = splitTopLevelByPlus(state.Rewards);
+        rewardTerms.forEach((term) => {
+            const val = Number(evaluateFormula(term, context)) || 0;
+            if (val >= 0) rewardPoints += val;
+            else penaltyPoints += Math.abs(val);
+        });
     } else {
-        if (['Monday', 'Tuesday', 'Wednesday'].includes(dayName)) {
-            if (remainingInventory > 500) rewardPoints += 2.0;
-            else rewardPoints -= 1.0;
-        } else if (['Thursday', 'Friday'].includes(dayName)) {
-            if (remainingInventory >= 300 && remainingInventory <= 500) rewardPoints += 2.0;
-            else rewardPoints -= 1.0;
-        } else if (['Saturday', 'Sunday'].includes(dayName)) {
-            if (remainingInventory >= 100 && remainingInventory <= 300) rewardPoints += 2.0;
-            else rewardPoints -= 1.0;
-        }
+        totalScore = dailyProfit;
+        rewardPoints = Math.max(0, dailyProfit);
+        penaltyPoints = Math.max(0, -dailyProfit);
     }
 
-    // 3. Competitor Dominance
-    if (competitorPresent && competitorPrice) {
-        const diff = competitorPrice - playerPrice;
-        if (diff >= 0 && diff <= 0.50) {
-            // Optimal Undercut / Match (Sweet Spot)
-            rewardPoints += 3.0;
-        } else if (playerPrice > competitorPrice + 1.00) {
-            // Hubris Penalty (Priced out of relevance)
-            rewardPoints -= 3.0;
-        }
-    }
-
-    // 4. End-of-Week Waste (Sunday Spoilage)
-    if (dayName === 'Sunday' && remainingInventory > 100) {
-        rewardPoints -= (remainingInventory / 50);
-    }
-
-    return rewardPoints;
+    return {
+        total: parseFloat(totalScore.toFixed(2)),
+        rewardPoints: parseFloat(rewardPoints.toFixed(2)),
+        penaltyPoints: parseFloat(penaltyPoints.toFixed(2))
+    };
 };
+

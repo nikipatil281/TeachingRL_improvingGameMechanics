@@ -1,127 +1,101 @@
-import allVariablesOn from '../data/pricing_scenarios/all_variables_on.json';
-import weatherCompetitorOn from '../data/pricing_scenarios/weather_competitor_on.json';
-import eventCompetitorOn from '../data/pricing_scenarios/event_competitor_on.json';
-import weatherEventOn from '../data/pricing_scenarios/weather_event_on.json';
-
 class RLAgent {
   constructor() {
-    this.epsilon = 0; // Exploring is handled directly in tutorial, main game is 100% exploit of optimal rules
-  }
-
-  // Parse strings like "competitor_price - 0.50" or "4.50" into actual floats
-  _parsePrice(formulaStr, competitorPrice) {
-    if (!formulaStr) return 4.50; // fallback
-
-    let parsedString = formulaStr.toLowerCase().replace('competitor_price', competitorPrice || 0);
-
-    let result = parseFloat(parsedString.trim());
-
-    // Extremely basic math evaluator for "X.XX - Y.YY" or "X.XX + Y.YY"
-    if (parsedString.includes('+')) {
-      const parts = parsedString.split('+');
-      result = parseFloat(parts[0].trim()) + parseFloat(parts[1].trim());
-    } else if (parsedString.includes('-')) {
-      // Handle negative numbers carefully if needed, though our formulas have positive bases
-      const parts = parsedString.split('-');
-      result = parseFloat(parts[0].trim()) - parseFloat(parts[1].trim());
-    }
-
-    return Math.max(1.00, result);
-  }
-
-  getAction(conditions, gameConfig) {
-    let activeScenario = null;
-    let matchId = "";
-
-    // Determine which JSON file to use and build the ID string to search for
-    if (gameConfig.weather && gameConfig.event && gameConfig.competitor) {
-      activeScenario = allVariablesOn;
-      matchId = `${conditions.weather.toLowerCase()}_${conditions.nearbyEvent ? 'yes' : 'no'}_${conditions.competitorPresent ? 'yes' : 'no'}`;
-    } else if (gameConfig.weather && gameConfig.competitor) {
-      activeScenario = weatherCompetitorOn;
-      matchId = `${conditions.weather.toLowerCase()}_${conditions.competitorPresent ? 'yes' : 'no'}`;
-    } else if (gameConfig.event && gameConfig.competitor) {
-      activeScenario = eventCompetitorOn;
-      matchId = `${conditions.nearbyEvent ? 'yes' : 'no'}_${conditions.competitorPresent ? 'yes' : 'no'}`;
-    } else if (gameConfig.weather && gameConfig.event) {
-      activeScenario = weatherEventOn;
-      matchId = `${conditions.weather.toLowerCase()}_${conditions.nearbyEvent ? 'yes' : 'no'}`;
-    }
-
-    let chosenAction = 4.50; // Default safe price
-    let foundState = null;
-
-    if (activeScenario) {
-      foundState = activeScenario.find(s => s.id === matchId);
-    }
-
-    if (foundState) {
-      // Calculate the absolute numerical range bounds
-      const minPrice = this._parsePrice(foundState.min_price, conditions.competitorPrice);
-      const maxPrice = this._parsePrice(foundState.max_price, conditions.competitorPrice);
-
-      // The ML agent is the "Vanilla/Baseline" AI. 
-      // The RL Agent represents the "Perfect/Optimal" AI. 
-      // To maximize profit, it generally wants to be near the optimal range's upper half if possible, 
-      // without violating the demand multiplier cliffs.
-
-      // As per the math derived from MarketEngine:
-      // We will target the average of the optimal min and max, rounded to the nearest $0.50 interval.
-      // Wait, for undercutting, we must STRICTLY hit the minPrice bound (which was engineered to trigger the multiplier).
-
-      // Using `minPrice` directly acts as a perfect exploit path based on how the JSONs were engineered.
-      chosenAction = minPrice;
-
-      // Safety guardrails
-      if (chosenAction < 1.00) chosenAction = 1.00;
-      if (chosenAction > 10.00) chosenAction = 10.00;
-    }
-
-    return {
-      action: `price_$${chosenAction.toFixed(2)}`,
-      price: chosenAction,
-      isExploring: false,
-      state: matchId || "fallback"
+    this.endpoint = "http://127.0.0.1:5001/predict";
+    this.weatherMap = { "Sunny": 0, "Cloudy": 1, "Rainy": 2 };
+    this.dayMap = {
+      "Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3,
+      "Friday": 4, "Saturday": 5, "Sunday": 6
     };
   }
 
-  // Helper method for the WeeklyReportModal
-  getOptimalRange(conditions, gameConfig) {
-    let activeScenario = null;
-    let matchId = "";
+  async getAction(conditions, yesterdayPrice = 4.50) {
+    const dayOfWeek =
+      typeof conditions.day === "string"
+        ? this.dayMap[conditions.day]
+        : Number.isFinite(conditions.dayNumber)
+          ? ((conditions.dayNumber - 1) % 7 + 7) % 7
+          : 0;
 
-    if (gameConfig.weather && gameConfig.event && gameConfig.competitor) {
-      activeScenario = allVariablesOn;
-      matchId = `${conditions.weather.toLowerCase()}_${conditions.nearbyEvent ? 'yes' : 'no'}_${conditions.competitorPresent ? 'yes' : 'no'}`;
-    } else if (gameConfig.weather && gameConfig.competitor) {
-      activeScenario = weatherCompetitorOn;
-      matchId = `${conditions.weather.toLowerCase()}_${conditions.competitorPresent ? 'yes' : 'no'}`;
-    } else if (gameConfig.event && gameConfig.competitor) {
-      activeScenario = eventCompetitorOn;
-      matchId = `${conditions.nearbyEvent ? 'yes' : 'no'}_${conditions.competitorPresent ? 'yes' : 'no'}`;
-    } else if (gameConfig.weather && gameConfig.event) {
-      activeScenario = weatherEventOn;
-      matchId = `${conditions.weather.toLowerCase()}_${conditions.nearbyEvent ? 'yes' : 'no'}`;
+    const payload = {
+      day_of_week: Number.isFinite(dayOfWeek) ? dayOfWeek : 0,
+      day_number: conditions.dayNumber || 1,
+      weather: this.weatherMap[conditions.weather] || 0,
+      inventory: conditions.inventory || 0,
+      nearby_event: conditions.nearbyEvent ? 1 : 0,
+      competitor_present: conditions.competitorPresent ? 1 : 0,
+      competitor_price: conditions.competitorPrice || 0,
+      yesterday_price: yesterdayPrice
+    };
+
+    try {
+      const response = await fetch(this.endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error("Backend unavailable");
+
+      const data = await response.json();
+      const suggestedPrice = data.suggested_price;
+      console.log(`[RL Agent] Predicted price for day: $${suggestedPrice}`);
+
+      return {
+        action: `price_$${suggestedPrice.toFixed(2)}`,
+        price: suggestedPrice,
+        isExploring: false,
+        state: "backend_prediction"
+      };
+    } catch (error) {
+      console.warn("RL Agent fallback (Backend connection error):", error);
+      // Fallback to a safe price if backend is down
+      return {
+        action: "price_$5.50",
+        price: 5.50,
+        isExploring: false,
+        state: "fallback"
+      };
     }
-
-    let foundState = null;
-    if (activeScenario) {
-      foundState = activeScenario.find(s => s.id === matchId);
-    }
-
-    if (foundState) {
-      const minPrice = this._parsePrice(foundState.min_price, conditions.competitorPrice);
-      const maxPrice = this._parsePrice(foundState.max_price, conditions.competitorPrice);
-      return { minPrice, maxPrice };
-    }
-
-    return { minPrice: 4.50, maxPrice: 4.50 };
   }
 
-  // No learning in Phase 2
+  // Heuristic-based optimal range for policy review summary
+  getOptimalRange(conditions) {
+    let minPrice = 4.0;
+    let maxPrice = 6.0;
+
+    // Adjust based on weather
+    if (conditions.weather === 'Rainy') {
+      minPrice = 4.5;
+      maxPrice = 5.5;
+    } else if (conditions.weather === 'Cloudy') {
+      minPrice = 5.0;
+      maxPrice = 6.0;
+    } else if (conditions.weather === 'Sunny') {
+      minPrice = 4.0;
+      maxPrice = 5.0;
+    }
+
+    // Adjust for events and competitor
+    if (conditions.nearbyEvent) {
+      minPrice += 1.0;
+      maxPrice += 1.0;
+    }
+
+    if (conditions.competitorPresent && conditions.competitorPrice) {
+      // RL agent tends to stay close to or slightly below competitor if they are cheap
+      if (conditions.competitorPrice < minPrice + 0.5) {
+        minPrice = Math.max(3.5, conditions.competitorPrice - 0.5);
+      }
+    }
+
+    return { minPrice, maxPrice };
+  }
+
+  // Learning is handled in Python, this is a placeholder to match existing interface
   learn() {
     return;
   }
 }
 
 export const rlAgent = new RLAgent();
+

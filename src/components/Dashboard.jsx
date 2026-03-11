@@ -20,7 +20,7 @@ import {
 import { getMLPrice, getMLFormula, initMLModel } from "../logic/MLAgent";
 import { rlAgent } from "../logic/RLAgent";
 
-const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
+const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvatar = 'Leo' }) => {
 
   // Game State
   const [day, setDay] = useState(1);
@@ -66,51 +66,63 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
 
   // Dynamic Memory Recall
   const getMemoryRecall = () => {
-    if (day <= 7 || history.length <= 1) return null; // No history yet or disabling for Week 1
-    // Ignore any history from prior to the start of the 28-day simulation (e.g. Day 1 of Main Simulation)
-    // We assume the tutorial ends when history resets/starts over at day 1. 
-    // Wait, the history array is passed entirely from App state? 
-    // Actually, Dashboard gets a fresh `history` state when it mounts or the game starts. 
-    const pastSimilarDays = history.filter((h, index) => index > 0 && typeof h.day === 'string' && h.day.includes("Day ") && h.weather === conditions.weather && h.nearbyEvent === conditions.nearbyEvent && h.competitorPresent === conditions.competitorPresent);
+    if (day <= 7 || history.length <= 1) return null;
+
+    // Find past days that have the EXACT same state ID (calculated in generateMainGameConditions)
+    const pastSimilarDays = history.filter((h, index) =>
+      index > 0 &&
+      typeof h.day === 'string' &&
+      h.day.includes("Day ") &&
+      h.stateId === conditions.stateId
+    );
 
     if (pastSimilarDays.length > 0) {
-      // Find the day with the maximum profit
-      let maxProfitDay = pastSimilarDays[0];
-      for (let i = 1; i < pastSimilarDays.length; i++) {
-        if (pastSimilarDays[i].playerDailyProfit > maxProfitDay.playerDailyProfit) {
-          maxProfitDay = pastSimilarDays[i];
-        }
-      }
+      // Find the most recent occurrence (the user usually wants to exploit the most recent or best info)
+      // Since states only repeat twice, there will be at most 1 past instance of the same state.
+      const lastOccurrence = pastSimilarDays[pastSimilarDays.length - 1];
 
       return {
-        dayStr: maxProfitDay.day,
-        price: maxProfitDay.playerPrice,
-        profit: maxProfitDay.playerDailyProfit
+        dayNum: lastOccurrence.day.replace("Day ", ""),
+        price: lastOccurrence.playerPrice,
+        profit: lastOccurrence.playerDailyProfit,
+        reward: lastOccurrence.playerDailyReward,
+        dayName: lastOccurrence.dayName || conditions.day // Fallback
       };
     }
     return null;
   };
   const memoryData = getMemoryRecall();
 
-  // 1. Initialize ML Model (Frontend-only mode)
+  // 1. Initialize ML Model (Backend check)
   useEffect(() => {
-    setMlReady(true);
+    const init = async () => {
+      const ready = await initMLModel();
+      setMlReady(ready);
+    };
+    init();
   }, []);
 
   async function updateSuggestions() {
-    // Async ML prediction (incorporates the potentially forced config conditions)
+    const currentDayName = conditions.day || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][(day - 1) % 7];
+
+    // Async ML prediction
     const mlP = await getMLPrice(
+      currentDayName,
       conditions.weather,
-      false, // Phase 2 ML doesn't use simple rules flag
       conditions.nearbyEvent,
+      mlInventory,
+      history[history.length - 1]?.mlPrice || 4.50
     );
     setMLSuggestion(mlP);
 
-    // RL prediction (using JSON logic based on active configs)
-    const rlResult = rlAgent.getAction(
-      conditions
+    // RL prediction (using backend logic)
+    const rlResult = await rlAgent.getAction(
+      { ...conditions, dayNumber: day, inventory: rlInventory },
+      history[history.length - 1]?.rlPrice || 4.50
     );
-    setRLSuggestion(rlResult);
+    if (rlResult && rlResult.price !== undefined) {
+      setRLSuggestion(rlResult);
+    }
   };
 
   // 2. Update Suggestions when conditions change
@@ -122,7 +134,6 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
     if (!gameActive) return;
 
     // 1. Calculate Player Results
-    const yesterdayPlayerPrice = history[history.length - 1]?.playerPrice;
     const playerDemand = calculateDemand(
       playerPrice,
       conditions.weather,
@@ -130,14 +141,13 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
       conditions.day,
       conditions.competitorPresent,
       conditions.competitorPrice,
-      yesterdayPlayerPrice
+      history[history.length - 1].playerPrice
     );
     const playerSales = calculateSales(playerDemand, playerInventory);
     const playerRevenue = playerSales * playerPrice;
 
     // 2. Calculate ML Results
     const mlPrice = mlSuggestion;
-    const yesterdayMlPrice = history[history.length - 1]?.mlPrice;
     const mlDemand = calculateDemand(
       mlPrice,
       conditions.weather,
@@ -145,7 +155,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
       conditions.day,
       conditions.competitorPresent,
       conditions.competitorPrice,
-      yesterdayMlPrice
+      history[history.length - 1].mlPrice
     );
     // ML act on its own inventory
     const mlSales = calculateSales(mlDemand, mlInventory);
@@ -153,7 +163,6 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
 
     // 3. Calculate RL Results
     const rlPrice = rlSuggestion.price;
-    const yesterdayRlPrice = history[history.length - 1]?.rlPrice;
     const rlDemand = calculateDemand(
       rlPrice,
       conditions.weather,
@@ -161,7 +170,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
       conditions.day,
       conditions.competitorPresent,
       conditions.competitorPrice,
-      yesterdayRlPrice
+      history[history.length - 1].rlPrice
     );
     const rlSales = calculateSales(rlDemand, rlInventory);
     const rlRevenue = rlSales * rlPrice;
@@ -181,7 +190,6 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
     if (conditions.competitorPresent && conditions.competitorPrice) {
       // The competitor is just another genuine seller in the exact same market.
       // Their demand is calculated identically, treating the player as *their* competitor.
-      const yesterdayCompPrice = history[history.length - 1]?.competitorPrice;
       const cDemand = calculateDemand(
         conditions.competitorPrice,
         conditions.weather,
@@ -189,7 +197,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
         conditions.day,
         true, // Player is present
         playerPrice, // Player's price acts as the competitor price against them
-        yesterdayCompPrice
+        history[history.length - 1].competitorPrice
       );
 
       // Apply Inventory Cap (Fairness)
@@ -204,9 +212,13 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
     const nextRlInv = rlInventory - rlSales;
     const nextCompInv = competitorInventory - compSales;
 
-    const playerDailyReward = calculateReward(playerDailyProfit, nextPlayerInv, conditions.day, playerPrice, conditions.competitorPresent, conditions.competitorPrice);
-    const mlDailyReward = calculateReward(mlDailyProfit, nextMlInv, conditions.day, mlPrice, conditions.competitorPresent, conditions.competitorPrice);
-    const rlDailyReward = calculateReward(rlDailyProfit, nextRlInv, conditions.day, rlPrice, conditions.competitorPresent, conditions.competitorPrice);
+    const playerRewardData = calculateReward(playerDailyProfit, nextPlayerInv, conditions.day, playerPrice, conditions.competitorPresent, conditions.competitorPrice, history[history.length - 1].playerPrice, conditions.weather, conditions.nearbyEvent);
+    const mlRewardData = calculateReward(mlDailyProfit, nextMlInv, conditions.day, mlPrice, conditions.competitorPresent, conditions.competitorPrice, history[history.length - 1].mlPrice, conditions.weather, conditions.nearbyEvent);
+    const rlRewardData = calculateReward(rlDailyProfit, nextRlInv, conditions.day, rlPrice, conditions.competitorPresent, conditions.competitorPrice, history[history.length - 1].rlPrice, conditions.weather, conditions.nearbyEvent);
+
+    const playerDailyReward = playerRewardData.total;
+    const mlDailyReward = mlRewardData.total;
+    const rlDailyReward = rlRewardData.total;
 
     // 7. Update History
     const lastRecord = history[history.length - 1];
@@ -224,6 +236,12 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
       playerDailyReward,
       mlDailyReward,
       rlDailyReward,
+      playerDailyRewardPoints: playerRewardData.rewardPoints,
+      playerDailyPenaltyPoints: playerRewardData.penaltyPoints,
+      mlDailyRewardPoints: mlRewardData.rewardPoints,
+      mlDailyPenaltyPoints: mlRewardData.penaltyPoints,
+      rlDailyRewardPoints: rlRewardData.rewardPoints,
+      rlDailyPenaltyPoints: rlRewardData.penaltyPoints,
 
       // Cumulative Revenue
       playerRevenue: lastRecord.playerRevenue + playerRevenue,
@@ -269,6 +287,8 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
       nearbyEvent: currentConditions.nearbyEvent,
       competitorPresent: currentConditions.competitorPresent,
       competitorPrice: currentConditions.competitorPrice,
+      stateId: currentConditions.stateId, // Store the state ID for memory recall
+      dayName: currentConditions.day,
 
       // Cumulative Sales (For Tooltip)
       playerTotalSales: (lastRecord.playerTotalSales || 0) + playerSales,
@@ -290,13 +310,13 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
     let actualNextRlInv = nextRlInv;
 
     if (day < 28 && day % 7 !== 0) {
-      if (nextMlInv <= 0) {
-        actualNextMlInv = 200;
-        autoMlPenalty = 95; // Bulk discount for 200 cups
+      if (nextMlInv <= 50) {
+        actualNextMlInv = 200 + nextMlInv;
+        autoMlPenalty = 275; // Bulk discount for 200 cups
       }
-      if (nextRlInv <= 0) {
-        actualNextRlInv = 200;
-        autoRlPenalty = 95;
+      if (nextRlInv <= 50) {
+        actualNextRlInv = 200 + nextRlInv;
+        autoRlPenalty = 275;
       }
 
       // Apply AI penalties immediately to the new record
@@ -428,7 +448,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
     }
 
     // Emergency Restock Trap
-    if (pendingNextDayStr.pInv <= 0) {
+    if (pendingNextDayStr.pInv <= 50) {
       setShowRestockModal(true);
       return; // handleEmergencyRestock will take over
     }
@@ -461,7 +481,8 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
     setWeeklyModalOpen(false);
 
     // Check if player had 0 inventory and needs emergency restock right after weekly report
-    if (pendingNextDayStr && pendingNextDayStr.pInv <= 0) {
+    // Fix: Skip if next day is a refill day (Monday) or if it's the end of the game (Day 28)
+    if (pendingNextDayStr && pendingNextDayStr.pInv <= 0 && pendingNextDayStr.nextDayNum % 7 !== 1 && day < 28) {
       setShowRestockModal(true);
       return;
     }
@@ -473,18 +494,6 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
       if (day === 28) {
         setModalOpen(true);
         return;
-      }
-
-      // DEMO MODE: Fast-forward straight from end of Week 1 (Day 7) to start of Week 4 (Day 22)
-      if (nextDayNum === 8) {
-        nextDayNum = 22;
-
-        setToast({
-          title: "Demo Fast-Forward",
-          message: `Skipping Weeks 2 & 3. Jumping straight to Week 4 (Day 22).`,
-          icon: 'play'
-        });
-        setTimeout(() => setToast(null), 4000);
       }
 
       advanceDay(nextDayNum, pendingNextDayStr.pInv, pendingNextDayStr.mInv, pendingNextDayStr.rInv, pendingNextDayStr.cInv);
@@ -534,6 +543,8 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
         shopName={shopName}
         onBackToDebrief={() => setShowPolicyPage(false)}
         theme={theme}
+        toggleTheme={toggleTheme}
+        onRestart={handleRestart}
       />
     );
   }
@@ -558,10 +569,10 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
         <div>
           <h1 className="text-2xl font-bold text-coffee-100 flex items-center gap-2">
             <Coffee className="w-5 h-5 text-amber-500" />
-            Coffee Shop RL Simulation
+            Coffee Shop Reinforcement Learning Simulation
           </h1>
           <p className="text-coffee-300 font-medium text-sm">
-            Master the art of pricing with the assistance of an RL agent.
+            Master the art of pricing with the assistance of an Machine Learning agent.
           </p>
         </div>
         <div className="flex items-center gap-4 md:gap-8 justify-end w-full md:w-auto">
@@ -607,80 +618,106 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
                 weather={conditions.weather}
                 inventory={playerInventory}
                 nearbyEvent={conditions.nearbyEvent}
+                eventName={conditions.eventName}
                 competitorPresent={conditions.competitorPresent}
+                competitorPrice={conditions.competitorPrice}
                 specialEvent={conditions.specialEvent}
               />
             </div>
 
-            {/* Tier 2: Controls & Chart + Insights (Split 38/62) */}
-            <div className="flex flex-col lg:flex-row gap-4 flex-grow min-h-0">
+            {/* Tier 2: Graph and Map (50/50 Split) matching Tutorial */}
+            <div className="w-full flex-grow min-h-0 flex flex-col md:flex-row gap-4 lg:gap-6">
+              <div className="md:w-1/2 bg-coffee-800/50 rounded-2xl border border-coffee-700/50 h-full flex flex-col overflow-hidden">
+                <div className="flex-grow w-full">
+                  <ProfitChart data={history} showRLAgents={true} shopName={shopName} hideRLLine={true} hideMLReward={true} />
+                </div>
+              </div>
+
+              {/* Animation / Simulation Box */}
+              <div className="md:w-1/2 bg-coffee-800/50 rounded-2xl h-full flex flex-col overflow-hidden relative group">
+                <div className="absolute inset-0 w-full h-full xl:bg-coffee-900/80 overflow-hidden flex items-center justify-center">
+                  <div className="absolute inset-0 w-full h-full">
+                    <CafeMap shopName={shopName} weather={conditions.weather} competitorPresent={conditions.competitorPresent} userAvatar={userAvatar} />
+                  </div>
+                  <div className="absolute inset-0 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAADCAYAAABS3WWCAaaAE0lEQVQIW2PAwn/MfxjA1MAAAwANJwH++eK/eQAAAABJRU5ErkJggg==')] opacity-10 pointer-events-none mix-blend-overlay"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tier 3: Controls & Chart + Insights (Split 38/62) */}
+            <div className="flex flex-col lg:flex-row gap-4 shrink-0 lg:h-[190px]">
               {/* Left: Price Selection & Settings */}
               <div className="lg:w-[38%] flex flex-col">
-                <div className="bg-coffee-800 p-4 rounded-xl border border-coffee-700 shadow-xl relative overflow-hidden flex flex-col h-full justify-between">
+                <div className="bg-coffee-700/60 p-4 rounded-xl border border-coffee-700 shadow-xl relative overflow-hidden flex flex-col h-full gap-3">
                   {/* Decor */}
                   <div className="absolute -right-4 -top-4 w-20 h-20 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
-                  {/* TOP: Labels */}
-                  <div className="flex flex-col mb-4">
-                    <label className="text-[10px] text-coffee-400 font-bold uppercase tracking-widest mb-1">Price Configuration</label>
-                    <span className="text-sm text-coffee-300 font-bold uppercase tracking-wider">Set Price for the day:</span>
-                  </div>
-
-                  {/* BOTTOM: Memory + Controls */}
-                  <div className="flex items-end justify-between gap-4 mt-auto">
-                    {/* Memory Retrieval Box (Left Side) */}
-                    <div className="w-full max-w-[55%] flex flex-col justify-end">
-                      {memoryData && (
-                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-blue-900/20 border border-blue-500/30 p-2 rounded-lg text-[10px] lg:text-[11px] text-blue-200 leading-snug">
-                          <div className="font-bold text-blue-800 dark:text-blue-400 mb-0.5 flex items-center gap-1"><Info className="w-3 h-3" /> In case you want to try Exploiting...</div>
-                          <span className="text-blue-900 dark:text-blue-200">According to your past, on {memoryData.dayStr.toLowerCase()} you encountered a similar state and received a profit of <span className="font-bold text-blue-900 dark:text-white">${memoryData.profit?.toFixed(0)}</span> - which is the maximum profit you've gained till now in this state at a price of <span className="font-bold text-blue-900 dark:text-white">${memoryData.price.toFixed(2)}</span>.</span>
-                        </motion.div>
-                      )}
-                    </div>
-
-                    {/* Controls (Right Side) */}
-                    <div className="flex flex-col items-end gap-3 z-10 shrink-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl text-amber-400 font-black">$</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="10"
-                          step="0.50"
-                          value={playerPrice}
-                          onChange={(e) => setPlayerPrice(e.target.value)}
-                          onBlur={(e) => {
-                            let val = parseFloat(e.target.value);
-                            if (isNaN(val)) val = 1;
-                            val = Math.round(val / 0.5) * 0.5;
-                            if (val < 1) val = 1;
-                            if (val > 10) val = 10;
-                            setPlayerPrice(val);
-                          }}
-                          className="w-20 bg-coffee-900 border-2 border-coffee-700 text-amber-400 text-lg font-black rounded-lg px-2 py-0.5 focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
-                        />
-                      </div>
-
-                      <motion.button
-                        whileHover={{ scale: (gameActive && playerPrice > 0 && !showPopup) ? 1.05 : 1 }}
-                        whileTap={{ scale: (gameActive && playerPrice > 0 && !showPopup) ? 0.95 : 1 }}
-                        onClick={handleStartDay}
-                        disabled={!gameActive || !playerPrice || playerPrice <= 0 || showPopup}
-                        className={`shrink-0 px-4 py-2 rounded-xl text-white font-black flex items-center justify-center gap-2 text-sm transition-all shadow-lg ${(gameActive && playerPrice > 0 && !showPopup)
-                          ? "bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 shadow-amber-500/20"
-                          : "bg-coffee-700 text-coffee-500 cursor-not-allowed opacity-50"
-                          }`}
-                      >
-                        {gameActive ? (
-                          <>
-                            <Play className="fill-current w-4 h-4" /> {playerPrice > 0 ? `OPEN SHOP` : "INVALID"}
-                          </>
-                        ) : (
-                          "ENDED"
-                        )}
-                      </motion.button>
+                  {/* TOP: Labels, Slider, Input Side-by-Side */}
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-coffee-300 font-bold uppercase tracking-wider shrink-0">Set Price for the day:</span>
+                    <input
+                      type="range"
+                      min="1"
+                      max="10"
+                      step="0.5"
+                      value={playerPrice}
+                      onChange={(e) => setPlayerPrice(parseFloat(e.target.value))}
+                      className="flex-grow h-2 bg-coffee-950 rounded-lg appearance-none cursor-pointer accent-amber-500 shadow-inner"
+                    />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-lg text-amber-400 font-black">$</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="10"
+                        step="0.50"
+                        value={playerPrice}
+                        onChange={(e) => setPlayerPrice(e.target.value)}
+                        onBlur={(e) => {
+                          let val = parseFloat(e.target.value);
+                          if (isNaN(val)) val = 1;
+                          val = Math.round(val / 0.5) * 0.5;
+                          if (val < 1) val = 1;
+                          if (val > 10) val = 10;
+                          setPlayerPrice(val);
+                        }}
+                        className="w-16 bg-coffee-900 border border-coffee-700 text-amber-400 text-base font-black rounded-lg px-2 py-0.5 focus:outline-none focus:border-amber-500 transition-colors shadow-inner"
+                      />
                     </div>
                   </div>
+
+                  {/* MIDDLE: Memory Retrieval Box (Full Width) */}
+                  <div className="w-full">
+                    {memoryData && (
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-blue-900/20 border border-blue-500/30 p-2 rounded-lg text-[10px] lg:text-[11px] text-blue-200 leading-snug w-full text-left">
+                        <div className="font-bold text-blue-800 dark:text-blue-400 mb-0.5 flex items-center gap-1"><Info className="w-3 h-3" /> If you wanna try exploiting...</div>
+                        <span className="text-blue-900 dark:text-blue-200">
+                          On a previous {memoryData.dayName}, a similar state gave a profit of <span className="font-bold text-blue-900 dark:text-white">${memoryData.profit?.toFixed(0)}</span> and reward of <span className="font-bold text-blue-900 dark:text-white">{memoryData.reward?.toFixed(0)} Pts</span> at the price per cup of <span className="font-bold text-blue-900 dark:text-white">${memoryData.price.toFixed(2)}</span>
+                        </span>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* BOTTOM: Action Button (Full Width) */}
+                  <motion.button
+                    whileHover={{ scale: (gameActive && playerPrice > 0 && !showPopup) ? 1.01 : 1 }}
+                    whileTap={{ scale: (gameActive && playerPrice > 0 && !showPopup) ? 0.99 : 1 }}
+                    onClick={handleStartDay}
+                    disabled={!gameActive || !playerPrice || playerPrice <= 0 || showPopup}
+                    className={`w-full px-4 py-3 rounded-xl text-white font-black flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest transition-all shadow-lg mt-auto ${(gameActive && playerPrice > 0 && !showPopup)
+                      ? "bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 shadow-amber-500/20"
+                      : "bg-coffee-700 text-coffee-500 cursor-not-allowed opacity-50"
+                      }`}
+                  >
+                    {gameActive ? (
+                      <>
+                        <Play className="fill-current w-4 h-4 shrink-0" />
+                        <span>Action: Set price for day {day} and simulate</span>
+                      </>
+                    ) : (
+                      "ENDED"
+                    )}
+                  </motion.button>
                 </div>
               </div>
 
@@ -690,19 +727,31 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
                 {/* Top Row: Chart (moved from below so it sits at the top of the right column!) */}
                 {/* Wait, user asked to separate ML box and insight box. Let's arrange them side by side. */}
                 <div className="flex flex-row gap-4 h-[180px]">
-                  {/* Insight 1: ML Suggestion (Constant) */}
-                  <div className="w-1/2 p-4 bg-coffee-800/80 rounded-xl shadow-2xl border border-coffee-700 flex flex-col justify-between relative overflow-hidden opacity-50">
-                    <div className="absolute inset-0 bg-blue-900/5 mix-blend-overlay pointer-events-none" />
-                    <div className="flex items-center gap-2 mb-1 relative z-10">
-                      <div className="bg-amber-500/20 p-1.5 rounded-lg border border-amber-500/30">
-                        <TrendingUp className="w-4 h-4 text-emerald-400" />
+                   {/* Insight 1: ML Suggestion (Sequential RF) */}
+                  <div className={`w-1/2 p-4 bg-coffee-800/80 rounded-xl shadow-2xl border ${mlReady ? 'border-amber-500/50' : 'border-coffee-700 opacity-50'} flex flex-col justify-between relative overflow-hidden transition-all duration-500`}>
+                    <div className={`absolute inset-0 ${mlReady ? 'bg-amber-500/5' : 'bg-blue-900/5'} mix-blend-overlay pointer-events-none`} />
+                    <div className="flex items-center justify-between gap-2 mb-1 relative z-10">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-lg border ${mlReady ? 'bg-amber-500/20 border-amber-500/30' : 'bg-coffee-700/50 border-coffee-600'}`}>
+                          <TrendingUp className={`w-4 h-4 ${mlReady ? 'text-amber-400' : 'text-coffee-500'}`} />
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-coffee-100">ML Suggestion</span>
                       </div>
-                      <span className="text-[10px] font-black uppercase tracking-widest text-coffee-400">Baseline Price</span>
+                      {mlReady && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          <span className="text-[8px] font-bold text-amber-500/80 uppercase">Live RF</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center justify-between mt-auto relative z-10">
-                      <span className="text-3xl font-black text-coffee-100">${mlSuggestion.toFixed(2)}</span>
+                      <span className={`text-3xl font-black ${mlReady ? 'text-amber-50' : 'text-coffee-400'}`}>
+                        {mlReady ? `$${mlSuggestion.toFixed(2)}` : "---"}
+                      </span>
                     </div>
-                    <div className="mt-2 text-[10px] text-coffee-500 leading-tight relative z-10">Static reference price for the simulation.</div>
+                    <div className="mt-2 text-[10px] text-coffee-400/80 leading-tight relative z-10">
+                      {mlReady ? "Sequential RF model price prediction." : "Waiting for ML backend..."}
+                    </div>
                   </div>
 
                   {/* Insight 2: Realized Profit Yesterday or Popup */}
@@ -780,25 +829,6 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
               </div>
             </div>
 
-            {/* Tier 3: Graph and Map (50/50 Split) matching Tutorial */}
-            <div className="w-full flex-grow min-h-0 flex flex-col md:flex-row gap-4 lg:gap-6">
-              <div className="md:w-1/2 bg-coffee-800/50 rounded-2xl border border-coffee-700/50 h-[350px] flex flex-col overflow-hidden">
-                <div className="flex-grow w-full">
-                  <ProfitChart data={history} showRLAgents={true} shopName={shopName} hideRLLine={true} hideMLReward={true} />
-                </div>
-              </div>
-
-              {/* Animation / Simulation Box */}
-              <div className="md:w-1/2 bg-coffee-800/50 rounded-2xl h-[350px] flex flex-col overflow-hidden relative group">
-                <div className="absolute inset-0 w-full h-full xl:bg-coffee-900/80 overflow-hidden flex items-center justify-center">
-                  <div className="absolute inset-0 w-full h-full">
-                    <CafeMap shopName={shopName} weather={conditions.weather} competitorPresent={conditions.competitorPresent} />
-                  </div>
-                  <div className="absolute inset-0 bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAADCAYAAABS3WWCAaaAE0lEQVQIW2PAwn/MfxjA1MAAAwANJwH++eK/eQAAAABJRU5ErkJggg==')] opacity-10 pointer-events-none mix-blend-overlay"></div>
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
 
@@ -819,7 +849,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart }) => {
                 {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => {
                   const isPast = d < day;
                   const isCurrent = d === day;
-                  const isLocked = d >= 8 && d <= 21;
+                  const isLocked = false;
                   return (
                     <div key={d} className="flex items-center justify-center relative group w-full bg-transparent shrink-0">
                       <div className={`w-6 h-6 rounded-full border-[1.5px] flex items-center justify-center transition-all duration-500 relative z-10 ${isPast ? 'border-amber-500/50 text-amber-500 bg-[#1e130d] shadow-[0_0_8px_rgba(245,158,11,0.1)]' :
