@@ -13,6 +13,7 @@ import PolicyReviewPage from "./PolicyReviewPage";
 import PolicyQuizPage from "./PolicyQuizPage";
 
 import {
+  initMainGameSchedule,
   calculateDemand,
   calculateSales,
   generateMainGameConditions,
@@ -29,7 +30,10 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
 
   // Game State
   const [day, setDay] = useState(1);
-  const [conditions, setConditions] = useState(generateMainGameConditions(1));
+  const [conditions, setConditions] = useState(() => {
+    initMainGameSchedule(true);
+    return generateMainGameConditions(1);
+  });
   const [playerPrice, setPlayerPrice] = useState(5);
 
   // Independent Weekly Inventories for Phase 2
@@ -208,6 +212,10 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
       ? calculateDailyProfit(compSales, normalizedCompetitorPrice, currentConditions.day)
       : { gross: 0, cogs: 0, penalty: 0, netProfit: 0 };
 
+    const playerRewardComponent = playerBreakdown.gross - playerBreakdown.cogs;
+    const mlRewardComponent = mlBreakdown.gross - mlBreakdown.cogs;
+    const rlRewardComponent = rlBreakdown.gross - rlBreakdown.cogs;
+
     const nextPlayerInv = playerInventory - playerSales;
     const nextMlInv = mlInventory - mlSales;
     const nextRlInv = rlInventory - rlSales;
@@ -235,6 +243,10 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
       compDailyProfit -= competitorPenalty;
     }
 
+    const playerPenaltyComponent = playerBreakdown.penalty + playerPenalty;
+    const mlPenaltyComponent = mlBreakdown.penalty + mlPenalty;
+    const rlPenaltyComponent = rlBreakdown.penalty + rlPenalty;
+
     const playerRewardData = calculateReward(playerDailyProfit);
     const mlRewardData = calculateReward(mlDailyProfit);
     const rlRewardData = calculateReward(rlDailyProfit);
@@ -255,12 +267,12 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
       playerDailyReward,
       mlDailyReward,
       rlDailyReward,
-      playerDailyRewardPoints: playerRewardData.rewardPoints,
-      playerDailyPenaltyPoints: playerRewardData.penaltyPoints,
-      mlDailyRewardPoints: mlRewardData.rewardPoints,
-      mlDailyPenaltyPoints: mlRewardData.penaltyPoints,
-      rlDailyRewardPoints: rlRewardData.rewardPoints,
-      rlDailyPenaltyPoints: rlRewardData.penaltyPoints,
+      playerDailyRewardPoints: parseFloat(playerRewardComponent.toFixed(2)),
+      playerDailyPenaltyPoints: parseFloat(playerPenaltyComponent.toFixed(2)),
+      mlDailyRewardPoints: parseFloat(mlRewardComponent.toFixed(2)),
+      mlDailyPenaltyPoints: parseFloat(mlPenaltyComponent.toFixed(2)),
+      rlDailyRewardPoints: parseFloat(rlRewardComponent.toFixed(2)),
+      rlDailyPenaltyPoints: parseFloat(rlPenaltyComponent.toFixed(2)),
 
       // Cumulative Net Profit
       playerRevenue: (lastRecord.playerRevenue || 0) + playerDailyProfit,
@@ -311,6 +323,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
       // Price and state trace
       rlDemand,
       rlPrice: normalizedRlPrice,
+      rlSource: rlSuggestion.state || "unknown",
       mlPrice: normalizedMlPrice,
       playerPrice: normalizedPlayerPrice,
       weather: mappedWeatherStr,
@@ -551,6 +564,11 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
             <div className="text-xs font-semibold text-coffee-400">
               {conditions.day}
             </div>
+            {rlSuggestion.state === "fallback" && (
+              <div className="text-[10px] font-semibold text-red-400">
+                RL backend offline - fallback price $5.00 in use
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -564,7 +582,8 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
               <MarketView
                 day={conditions.day}
                 weather={conditions.weather}
-                inventory={playerInventory}
+                inventory={showPopup && pendingNextDayStr ? pendingNextDayStr.pInv : playerInventory}
+                isDayEnd={showPopup}
                 nearbyEvent={conditions.nearbyEvent}
                 eventName={conditions.eventName}
                 competitorPresent={conditions.competitorPresent}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, Target, AlertCircle, ShoppingCart, Info, Clock, Thermometer, Calendar } from 'lucide-react';
+import { WEEKLY_START_INVENTORY, WASTAGE_COST_PER_CUP } from '../logic/MarketEngine';
 
 const PrePhase1Transition = ({ onComplete, theme }) => {
     const [isUnlocked, setIsUnlocked] = useState(false);
@@ -48,28 +49,28 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
             bg: "bg-amber-400/10",
             border: "border-amber-400/20",
             title: "Weekly Operations",
-            text: "A week starts on Monday morning and ends on Sunday night. Each days start at 7 AM and ends at 10 PM."
+            text: "A week starts on Monday morning and ends on Sunday night. Each day starts at 7 AM and ends at 10 PM."
         },
         {
             color: "text-emerald-400",
             bg: "bg-emerald-400/10",
             border: "border-emerald-400/20",
-            title: "Fixed Inventories",
-            text: "Raw materials (inventory) for 1,500 cups of coffee are restocked every Monday morning (before the day starts)."
+            title: "Weekly Inventory Reset",
+            text: `Raw materials (inventory) for ${WEEKLY_START_INVENTORY.toLocaleString()} cups of coffee are restocked every Monday morning (before the day starts).`
         },
         {
             color: "text-red-400",
             bg: "bg-red-400/10",
             border: "border-red-400/20",
             title: "Perishable Goods",
-            text: "The shelf-life of your inventory is exactly one week. Any unsold inventory will incur a wastage penalty on Sunday night."
+            text: `The shelf-life of your inventory is exactly one week. Any unsold inventory incurs a $${WASTAGE_COST_PER_CUP.toFixed(2)} wastage penalty per cup on Sunday night.`
         },
         {
             color: "text-blue-400",
             bg: "bg-blue-400/10",
             border: "border-blue-400/20",
-            title: "Emergency Restocking",
-            text: "If you sell out mid-week, you receive emergency restock options, but at a premium cost."
+            title: "No Mid-Week Restock",
+            text: "If you sell out mid-week, you cannot restock until Monday's weekly reset."
         },
         {
             color: "text-purple-400",
@@ -142,7 +143,7 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
                                     <li className="flex items-start gap-3"><span className="text-emerald-400 font-bold shrink-0 w-44">Agent</span> The decision maker (YOU).</li>
                                     <li className="flex items-start gap-3"><span className="text-blue-400 font-bold shrink-0 w-44">Action</span> The decision made (Setting daily price of coffee).</li>
                                     <li className="flex items-start gap-3"><span className="text-purple-400 font-bold shrink-0 w-44">Reward</span> The positive feedback received based on Profit, Inventory Management, Competitor Pricing etc.</li>
-                                    <li className="flex items-start gap-3"><span className="text-rose-400 font-bold shrink-0 w-44">Penalty</span> The negative feedback received based on Restocking, Wastage etc.</li>
+                                    <li className="flex items-start gap-3"><span className="text-rose-400 font-bold shrink-0 w-44">Penalty</span> The negative feedback received based on low sales and week-end wastage.</li>
                                     <li className="flex items-start gap-3"><span className="text-indigo-400 font-bold shrink-0 w-44">Policy</span> Your pricing strategy that optimises your rewards.</li>
                                     <li className="flex items-start gap-3"><span className="text-blue-400 font-bold shrink-0 w-44">Sequential Learning</span> Learning from actions over time.</li>
                                     <li className="flex items-start gap-3"><span className="text-yellow-400 font-bold shrink-0 w-44">Exploration</span> Trying new prices to learn the optimal price for a given state.</li>

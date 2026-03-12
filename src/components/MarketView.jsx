@@ -79,9 +79,9 @@ const MarketView = ({ day, weather, inventory, isDayEnd, nearbyEvent, eventName,
           <div className="flex flex-col">
             <div className="text-[10px] uppercase tracking-wider text-coffee-400 font-bold mb-1">Inventory</div>
             <div className={`text-lg font-mono font-bold ${inventory <= 0 ? 'text-red-500' : 'text-indigo-300'}`}>
-              {inventory} <span className="text-xs text-coffee-500 font-normal">units</span>
+              {inventory} <span className="text-xs text-coffee-500 font-normal">cups</span>
             </div>
-            <div className="text-[10px] text-coffee-400">{inventory <= 0 ? 'RESTOCK REQ' : (isDayEnd ? 'Remaining' : 'Opening')}</div>
+            <div className="text-[10px] text-coffee-400">{inventory <= 0 ? 'OUT OF STOCK' : (isDayEnd ? 'Remaining after sales' : 'Opening stock')}</div>
           </div>
           <InventoryIcon isOutOfStock={inventory <= 0} />
         </div>

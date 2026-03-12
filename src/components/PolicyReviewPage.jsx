@@ -11,6 +11,10 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
 
     if (!history || history.length < 2) return null;
 
+    const rlFallbackDays = history.filter(
+        (h) => h.day !== 'Start' && h.rlSource === 'fallback'
+    ).length;
+
     const handleExportPDF = async () => {
         if (!reportRef.current) return;
         setIsExporting(true);
@@ -199,6 +203,14 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
                         </button>
                     </div>
                 </div>
+
+                {rlFallbackDays > 0 && (
+                    <div className="w-full mb-6 bg-red-900/20 border border-red-600/40 rounded-xl p-4">
+                        <p className="text-sm text-red-200">
+                            RL backend was unavailable on {rlFallbackDays} day(s), so fallback pricing may appear in this report.
+                        </p>
+                    </div>
+                )}
 
                 {/* Final Chart Stretched - NOW USING PROFIT CHART */}
                 <div className="w-full h-[550px] mb-8">

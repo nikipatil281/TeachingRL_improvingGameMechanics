@@ -1,15 +1,17 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import os
+
 import joblib
 import numpy as np
-import os
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
 
-# Paths
-MODEL_PATH = "models/ml_model.joblib"
-ENCODER_PATH = "models/ml_encoder.joblib"
+# Paths (always resolve from this file's directory, not process cwd)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(SCRIPT_DIR, "models", "ml_model.joblib")
+ENCODER_PATH = os.path.join(SCRIPT_DIR, "models", "ml_encoder.joblib")
 
 # Global variables for model and encoder
 model = None

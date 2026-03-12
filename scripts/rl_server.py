@@ -9,11 +9,14 @@ from stable_baselines3 import DQN, PPO
 app = Flask(__name__)
 CORS(app)
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_DIR = os.path.join(SCRIPT_DIR, 'models')
+
 MODEL_ALGO = os.environ.get('RL_MODEL_ALGO', 'dqn').strip().lower()
-MODEL_PATH = f'models/{MODEL_ALGO}_coffee.zip'
+MODEL_PATH = os.path.join(MODEL_DIR, f'{MODEL_ALGO}_coffee.zip')
 
 if not os.path.exists(MODEL_PATH):
-    MODEL_PATH = 'models/dqn_coffee.zip'
+    MODEL_PATH = os.path.join(MODEL_DIR, 'dqn_coffee.zip')
     MODEL_ALGO = 'dqn'
 
 if not os.path.exists(MODEL_PATH):

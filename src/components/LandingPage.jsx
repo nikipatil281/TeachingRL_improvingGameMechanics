@@ -27,7 +27,7 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
     {
       id: 3,
       title: "Factors to consider",
-      content: "Managing inventory is crucial. Running out of beans means lost sales, while overstocking leads to high storage costs. Emergency restocks are expensive! You may consider factors like the weather, day of the week and BeanMean's pricing before setting your own price for the day.",
+      content: "Managing inventory is crucial. Running out of beans means lost sales for the rest of the week, while overstocking leads to Sunday wastage penalties. You may consider factors like the weather, day of the week and BeanMean's pricing before setting your own price for the day.",
       image: "/story_2.png",
       icon: <TrendingUp className="w-8 h-8 text-amber-500" />,
       color: "from-amber-500/20 to-orange-500/10"

@@ -120,7 +120,11 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
     const playerSales = calculateSales(playerDemand, inventory);
     const playerRevenue = playerSales * normalizedPlayerPrice;
     const playerProfitBreakdown = calculateDailyProfit(playerSales, normalizedPlayerPrice, conditions.day);
-    const playerProfit = playerProfitBreakdown.netProfit;
+    const nextPlayerInv = inventory - playerSales;
+    const playerPenalty = day === 7 ? calculateWeekWastagePenalty(nextPlayerInv) : 0;
+    const playerRewardComponent = playerProfitBreakdown.gross - playerProfitBreakdown.cogs;
+    const playerPenaltyComponent = playerProfitBreakdown.penalty + playerPenalty;
+    const playerProfit = playerRewardComponent - playerPenaltyComponent;
 
     // Calculate Competitor Results for Graph
     let compRevenue = 0;
@@ -228,7 +232,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
         }
         break;
       case 6:
-        fb.educationalTip = { title: "Concept 6: Penalty", text: "Though you undercut the competitor, due to high demand you almost sold out before the end of the week! Dropping below 50 cups in inventory triggers an emergency restock 'Penalty'." };
+        fb.educationalTip = { title: "Concept 6: Penalty", text: "Though you undercut the competitor, high demand pushed your inventory down quickly. In this simulation, selling out early means missed sales until Monday's weekly inventory reset." };
         break;
       case 7:
         const price3 = history[3]?.playerPrice;
@@ -243,8 +247,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
         break;
     }
 
-    const nextPlayerInv = inventory - playerSales;
-    const playerRewardData = calculateReward(playerProfit, nextPlayerInv, conditions.day, playerPrice, conditions.competitorPresent, conditions.competitorPrice, history[history.length - 1].playerPrice, conditions.weather, conditions.nearbyEvent);
+    const playerRewardData = calculateReward(playerProfit);
     const playerDailyReward = playerRewardData.total;
     fb.playerReward = playerDailyReward;
     setFeedback(fb);
@@ -257,10 +260,12 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
       playerDailyRevenue: playerRevenue,
       playerDailyProfit: playerProfit,
       playerSales: playerSales,
+      playerPenalty,
+      playerLowSalesPenalty: playerProfitBreakdown.penalty,
       playerReward: (history[history.length - 1].playerReward || 0) + playerDailyReward,
       playerDailyReward: playerDailyReward,
-      playerDailyRewardPoints: playerRewardData.rewardPoints,
-      playerDailyPenaltyPoints: playerRewardData.penaltyPoints,
+      playerDailyRewardPoints: parseFloat(playerRewardComponent.toFixed(2)),
+      playerDailyPenaltyPoints: parseFloat(playerPenaltyComponent.toFixed(2)),
       competitorRevenue: (history[history.length - 1].competitorRevenue || 0) + compRevenue,
       competitorProfit: (history[history.length - 1].competitorProfit || 0) + compProfit,
       competitorDailyRevenue: compRevenue,
@@ -299,17 +304,9 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
 
       // End Tutorial - Show Weekly Report first
       const playerPenalty = calculateWeekWastagePenalty(pendingInventory);
-
-      // Apply Penalty to the New Record before calculating Weekly Stats
       const finalHistory = [...history];
-      const weekEndRecord = { ...finalHistory[finalHistory.length - 1] };
-      weekEndRecord.playerProfit -= playerPenalty;
-      weekEndRecord.playerPenalty = playerPenalty;
-      finalHistory[finalHistory.length - 1] = weekEndRecord;
-      setHistory(finalHistory);
-
       const startOfWeek = finalHistory[0] || { playerProfit: 0 };
-      const endOfWeek = weekEndRecord;
+      const endOfWeek = finalHistory[finalHistory.length - 1] || { playerProfit: 0 };
 
       const weeklyStats = {
         playerTotal: endOfWeek.playerProfit - startOfWeek.playerProfit,

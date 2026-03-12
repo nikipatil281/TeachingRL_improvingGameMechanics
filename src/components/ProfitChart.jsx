@@ -102,7 +102,7 @@ const ProfitChart = ({ data, showRLAgents = true, showMLAgent = true, shopName =
                     ) : viewMode === 'Rewards' ? (
                         <h2 className="text-base md:text-lg font-bold flex items-center gap-x-1.5 whitespace-nowrap">
                             <span className="text-coffee-100">Deep RL Metrics:</span>
-                            <span className="text-purple-400">Rewards & Penalties</span>
+                            <span className="text-purple-400">NetRewards = Rewards - Penalties</span>
                         </h2>
                     ) : (
                         <div>
@@ -150,40 +150,37 @@ const ProfitChart = ({ data, showRLAgents = true, showMLAgent = true, shopName =
                                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
                                 <XAxis dataKey="day" stroke="#9ca3af" tick={{ fill: '#9ca3af', fontSize: 10 }} />
 
-                                {/* Left Y-Axis for Reward */}
+                                {/* Left Y-Axis for daily net reward */}
                                 <YAxis
                                     yAxisId="left"
                                     stroke="#a855f7"
                                     tick={{ fill: '#a855f7', fontSize: 10 }}
-                                    label={{ value: 'Reward', angle: -90, position: 'insideLeft', offset: 0, fill: '#a855f7', fontSize: 10 }}
+                                    label={{ value: 'Daily Net Reward ($)', angle: -90, position: 'insideLeft', offset: 0, fill: '#a855f7', fontSize: 10 }}
                                 />
 
                                 <Tooltip content={<CustomTooltip viewMode={viewMode} shopName={shopName} showRLAgents={showRLAgents} showMLAgent={showMLAgent} hideRLLine={hideRLLine} hideRLRewardLine={hideRLRewardLine} />} />
 
-                                {/* Reward as Line */}
-                                <Line
+                                {/* Grouped bars for daily net rewards */}
+                                <Bar
                                     yAxisId="left"
-                                    type="monotone"
-                                    dataKey="playerReward"
-                                    name="Reward"
-                                    stroke="#a855f7"
-                                    strokeWidth={4}
-                                    dot={{ fill: '#581c87', stroke: '#a855f7', strokeWidth: 2, r: 4 }}
-                                    activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
+                                    dataKey="playerDailyReward"
+                                    name="Your Net Reward"
+                                    fill="#a855f7"
+                                    fillOpacity={0.85}
+                                    radius={[3, 3, 0, 0]}
+                                    barSize={16}
                                 />
 
                                 {showRLAgents && !hideRLRewardLine && (
                                     <>
-                                        <Line
+                                        <Bar
                                             yAxisId="left"
-                                            type="monotone"
-                                            dataKey="rlReward"
-                                            name="RL Agent Reward"
-                                            stroke="#f97316"
-                                            strokeWidth={2}
-                                            strokeDasharray="5 5"
-                                            dot={false}
-                                            opacity={0.5}
+                                            dataKey="rlDailyReward"
+                                            name="RL Agent Net Reward"
+                                            fill="#f97316"
+                                            fillOpacity={0.65}
+                                            radius={[3, 3, 0, 0]}
+                                            barSize={16}
                                         />
                                     </>
                                 )}
@@ -325,13 +322,13 @@ const ProfitChart = ({ data, showRLAgents = true, showMLAgent = true, shopName =
                                         <th className="p-0 text-center">
                                             <div className="relative group inline-block p-3 hover:bg-coffee-700/50 rounded transition-colors cursor-help">
                                                 <Award className="w-4 h-4 mx-auto text-purple-400" />
-                                                <div className="absolute opacity-0 group-hover:opacity-100 bg-coffee-900 border border-coffee-600 text-coffee-100 text-[10px] py-1.5 px-3 rounded top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none transition-opacity duration-200 z-[60] shadow-xl">Reward Pts</div>
+                                                <div className="absolute opacity-0 group-hover:opacity-100 bg-coffee-900 border border-coffee-600 text-coffee-100 text-[10px] py-1.5 px-3 rounded top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none transition-opacity duration-200 z-[60] shadow-xl">Reward ($)</div>
                                             </div>
                                         </th>
                                         <th className="p-0 text-center">
                                             <div className="relative group inline-block p-3 hover:bg-coffee-700/50 rounded transition-colors cursor-help">
                                                 <AlertCircle className="w-4 h-4 mx-auto text-red-500" />
-                                                <div className="absolute opacity-0 group-hover:opacity-100 bg-coffee-900 border border-coffee-600 text-coffee-100 text-[10px] py-1.5 px-3 rounded top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none transition-opacity duration-200 z-[60] shadow-xl">Penalty Pts</div>
+                                                <div className="absolute opacity-0 group-hover:opacity-100 bg-coffee-900 border border-coffee-600 text-coffee-100 text-[10px] py-1.5 px-3 rounded top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none transition-opacity duration-200 z-[60] shadow-xl">Penalty ($)</div>
                                             </div>
                                         </th>
                                     </tr>

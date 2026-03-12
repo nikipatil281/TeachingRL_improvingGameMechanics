@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TrendingUp, Award, AlertCircle, Sun, Moon, TableProperties } from 'lucide-react';
 import ProfitChart from './ProfitChart';
 import { rlAgent } from '../logic/RLAgent';
+import { WASTAGE_COST_PER_CUP } from '../logic/MarketEngine';
 
 const WeeklyReportModal = ({ isOpen, weekNumber, data, onContinue, onBackToTutorial, theme, toggleTheme, shopName = "You", isTutorial = false, weekHistoryData = [] }) => {
   if (!isOpen) return null;
@@ -92,12 +93,12 @@ const WeeklyReportModal = ({ isOpen, weekNumber, data, onContinue, onBackToTutor
                 <div className="text-amber-600 dark:text-amber-500 font-bold mb-2 text-lg truncate" title={shopName}>{isTutorial ? "Your Perfomance" : shopName}</div>
                 <div className="text-3xl font-mono text-coffee-50 dark:text-white mb-2">${data.playerTotal.toFixed(0)}</div>
                 <div className="text-sm text-coffee-500 dark:text-coffee-300 mb-2">{data.playerSales} cups sold</div>
-                <div className="text-xs text-red-600 dark:text-red-400 font-mono bg-red-100/50 dark:bg-red-950/30 rounded py-2 px-3 mt-3 border border-red-200 dark:border-red-900/50 leading-relaxed text-left flex flex-col gap-1">
+                    <div className="text-xs text-red-600 dark:text-red-400 font-mono bg-red-100/50 dark:bg-red-950/30 rounded py-2 px-3 mt-3 border border-red-200 dark:border-red-900/50 leading-relaxed text-left flex flex-col gap-1">
                   <div className="flex justify-between font-bold">
-                    <span>Wastage/Storage:</span>
+                    <span>Wastage Penalty:</span>
                     <span>-${data.playerPenalty?.toFixed(2) || '0.00'}</span>
                   </div>
-                  <span className="text-[10px] text-red-500/80 leading-tight">({data.playerInventoryLeft} cups left over at the end of the week x $0.50 disposal fee)</span>
+                  <span className="text-[10px] text-red-500/80 leading-tight">{`(${data.playerInventoryLeft} cups left over at the end of the week x $${WASTAGE_COST_PER_CUP.toFixed(2)} wastage fee)`}</span>
                 </div>
               </div>
 
@@ -110,10 +111,10 @@ const WeeklyReportModal = ({ isOpen, weekNumber, data, onContinue, onBackToTutor
                   <div className="text-sm text-coffee-500 dark:text-coffee-300 mb-2">{data.mlSales} cups sold</div>
                   <div className="text-xs text-red-600 dark:text-red-400 font-mono bg-red-100/50 dark:bg-red-950/30 rounded py-2 px-3 mt-3 border border-red-200 dark:border-red-900/50 leading-relaxed text-left flex flex-col gap-1">
                     <div className="flex justify-between font-bold">
-                      <span>Wastage/Storage:</span>
+                      <span>Wastage Penalty:</span>
                       <span>-${data.mlPenalty?.toFixed(2) || '0.00'}</span>
                     </div>
-                    <span className="text-[10px] text-red-500/80 leading-tight">({data.mlInventoryLeft} cups left over at the end of the week x $0.50 disposal fee)</span>
+                    <span className="text-[10px] text-red-500/80 leading-tight">{`(${data.mlInventoryLeft} cups left over at the end of the week x $${WASTAGE_COST_PER_CUP.toFixed(2)} wastage fee)`}</span>
                   </div>
                 </div>
               )}
