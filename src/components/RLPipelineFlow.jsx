@@ -393,7 +393,7 @@ const DESKTOP_NODES = [
         position: { x: 1100, y: 970 },
         data: {
             title: 'Policy',
-            description: 'The policy stores what the agent has learned so far about which actions work best in each state.',
+            description: 'The policy stores what the agent has learned so far about which actions work best in each state. In this app, the deployed RL system is trained with DQN by default.',
             tone: 'orange',
             icon: BrainCircuit,
         },
