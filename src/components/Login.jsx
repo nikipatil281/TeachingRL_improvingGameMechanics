@@ -18,7 +18,7 @@ const Login = ({ onJoin, theme, toggleTheme, userName }) => {
   };
 
   return (
-    <div className={`h-full bg-coffee-900 text-coffee-100 flex flex-col items-center p-4 md:p-8 relative overflow-hidden transition-colors duration-500 ${theme}`}>
+    <div className={`h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center p-4 md:p-8 relative overflow-x-hidden overflow-y-auto transition-colors duration-500 ${theme}`}>
 
       {/* Theme Toggle Button */}
       <div className="absolute top-4 right-4 md:top-8 md:right-8 z-20">
@@ -39,7 +39,7 @@ const Login = ({ onJoin, theme, toggleTheme, userName }) => {
         <div className="absolute bottom-[-5%] right-[-5%] w-[500px] h-[500px] bg-orange-900/20 rounded-full blur-[120px] animate-blob [animation-delay:2s]" />
       </div>
 
-      <div className="z-10 w-full max-w-7xl flex flex-col items-center justify-center flex-1 min-h-0 overflow-y-auto overscroll-contain py-12 gap-8 md:gap-12">
+      <div className="z-10 w-full max-w-7xl flex flex-col items-center justify-center flex-grow py-12 gap-8 md:gap-12">
 
         {/* Title Section */}
         <div className="text-center">

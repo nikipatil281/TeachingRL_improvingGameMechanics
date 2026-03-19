@@ -684,7 +684,7 @@ const Dashboard = ({
 
   return (
     <div
-      className="h-full bg-coffee-900 text-coffee-100 p-4 font-sans relative overflow-hidden transition-colors duration-500 flex flex-col"
+      className={`${useCompactDashboardLayout ? 'h-screen overflow-y-auto' : 'h-screen overflow-hidden'} bg-coffee-900 text-coffee-100 p-4 font-sans relative overflow-x-hidden transition-colors duration-500 flex flex-col ${theme}`}
     >
       {/* Doodle Pattern Overlay */}
       <div className={`absolute inset-0 pointer-events-none bg-doodle-mask z-0 transition-all duration-500 ${theme === 'theme-black-coffee' ? 'bg-amber-100 opacity-[0.08] mix-blend-screen' : 'bg-amber-900 opacity-[0.15] mix-blend-luminosity'}`} />
@@ -698,8 +698,7 @@ const Dashboard = ({
 
       <WeatherEffects weather={conditions.weather} />
 
-      <div className={`relative z-10 flex flex-1 min-h-0 flex-col ${useCompactDashboardLayout ? 'overflow-y-auto overscroll-contain pr-2' : ''}`}>
-      <header className="mb-4 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
+      <header className="mb-4 flex flex-col md:flex-row items-center justify-between relative z-10 gap-4 shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-coffee-100 flex items-center gap-2">
             <Coffee className="w-5 h-5 text-amber-500" />
@@ -751,7 +750,7 @@ const Dashboard = ({
         </div>
       </header>
 
-      <div className="w-full max-w-[95rem] mx-auto flex gap-4 lg:gap-6 flex-grow min-h-0 pr-2">
+      <div className="w-full max-w-[95rem] mx-auto flex gap-4 lg:gap-6 flex-grow min-h-0 relative z-10 pr-2">
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex flex-col gap-4 flex-grow min-h-0">
@@ -1116,7 +1115,6 @@ const Dashboard = ({
           </motion.div>
         )}
       </AnimatePresence>
-      </div>
     </div>
   );
 };

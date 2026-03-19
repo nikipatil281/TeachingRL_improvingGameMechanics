@@ -36,7 +36,7 @@ const Phase1Instructions = ({ onComplete, theme, toggleTheme }) => {
   }, []);
 
   return (
-    <div className={`h-full bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden transition-colors duration-500 ${theme}`}>
+    <div className={`h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-x-hidden overflow-y-auto transition-colors duration-500 ${theme}`}>
       <style>
         {`
           .tour-image-loader {
@@ -155,12 +155,11 @@ const Phase1Instructions = ({ onComplete, theme, toggleTheme }) => {
         <div className="absolute top-[20%] right-[20%] w-[300px] h-[300px] bg-blue-900/20 rounded-full blur-[100px] animate-slow-spin opacity-50" />
       </div>
 
-      <div className="z-10 flex w-full flex-1 min-h-0 overflow-y-auto overscroll-contain">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="m-auto w-full max-w-7xl bg-coffee-950/50 backdrop-blur-xl border border-coffee-800 rounded-3xl p-5 md:p-8 shadow-2xl flex flex-col items-center text-center relative"
-        >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="z-10 w-full max-w-7xl bg-coffee-950/50 backdrop-blur-xl border border-coffee-800 rounded-3xl p-5 md:p-8 shadow-2xl flex flex-col items-center text-center relative"
+      >
         {/* Annotated Tutorial Dashboard Screenshot */}
         <motion.div
           initial={{ y: 20, opacity: 0 }}
@@ -351,8 +350,7 @@ const Phase1Instructions = ({ onComplete, theme, toggleTheme }) => {
             </button>
           </motion.div>
         )}
-        </motion.div>
-      </div>
+      </motion.div>
     </div>
   );
 };
