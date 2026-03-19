@@ -858,7 +858,7 @@ const Dashboard = ({
                       {mlReady ? "Sequential RandomForest model price prediction." : "Waiting for ML backend..."}
                     </div>
                     <div className="mt-1 text-[9px] leading-tight text-coffee-400/70 relative z-10">
-                      If this box looks greyed out ALL THE TIME instead of amber, the ML and RL server may not be active yet. Check the top-right Server Status button.
+                      If this box looks greyed out ALL THE TIME instead of amber, the ML and RL server may not be ready yet. Check the top-right Server Status button.
                     </div>
                   </div>
 
