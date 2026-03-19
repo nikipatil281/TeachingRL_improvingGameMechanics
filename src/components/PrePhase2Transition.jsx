@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion, useAnimation } from 'framer-motion';
-import { ChevronRight, Target, Info, Cpu, TrendingUp, Zap, Server, Shield, Check, X, CloudSun, Star, Store } from 'lucide-react';
+import { ChevronRight, Target, Info, Cpu, TrendingUp, Zap, Server, Shield, Check, X, CloudSun, Star, Store, Sun, Moon } from 'lucide-react';
+import { BackendStatusButton } from './BackendStatusPopup';
 
-const PrePhase2Transition = ({ onComplete, theme }) => {
+const PrePhase2Transition = ({
+    onComplete,
+    theme,
+    toggleTheme,
+    backendStatus,
+    showBackendStatusButton,
+    onOpenBackendStatus,
+}) => {
     const [isUnlocked, setIsUnlocked] = useState(false);
     const controls = useAnimation();
     const [containerWidth, setContainerWidth] = useState(0);
     const sliderRef = React.useRef(null);
+    const mlState = backendStatus?.ml?.state ?? 'idle';
+    const rlState = backendStatus?.rl?.state ?? 'idle';
 
     useEffect(() => {
         const updateWidth = () => {
@@ -69,6 +79,25 @@ const PrePhase2Transition = ({ onComplete, theme }) => {
     return (
         <div className={`min-h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-2 md:p-8 relative overflow-y-auto transition-colors duration-500 ${theme}`}>
 
+            <div className="absolute right-4 top-4 z-20 flex items-center gap-3 md:right-8 md:top-8">
+                {showBackendStatusButton && onOpenBackendStatus && (
+                    <BackendStatusButton
+                        mlState={mlState}
+                        rlState={rlState}
+                        onOpen={onOpenBackendStatus}
+                    />
+                )}
+                <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="flex items-center gap-2 rounded-full border border-coffee-700 bg-coffee-800/80 px-3 py-1.5 text-xs font-bold shadow-md transition-colors hover:bg-coffee-700"
+                >
+                    {theme === 'theme-black-coffee'
+                        ? <><Sun className="w-4 h-4 text-amber-500" /> Latte</>
+                        : <><Moon className="w-4 h-4 text-blue-300" /> Dark Mode</>}
+                </button>
+            </div>
+
             {/* Background Decor */}
             <div className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${theme === 'theme-black-coffee' ? 'opacity-40 mix-blend-screen' : 'opacity-40 mix-blend-color-burn'}`}>
                 <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-blue-900/40 rounded-full blur-[120px] animate-blob" />
@@ -94,6 +123,9 @@ const PrePhase2Transition = ({ onComplete, theme }) => {
                     </h1>
                     <p className="text-lg md:text-xl text-coffee-300 font-medium max-w-2xl mx-auto">
                         Welcome to the 28-day challenge. It's time to refine your pricing strategies alongside an Machine Learning (ML) advisor.!
+                    </p>
+                    <p className="mt-3 text-sm md:text-base text-coffee-400 font-medium max-w-3xl mx-auto">
+                        While you review this page, the app is quietly waking the ML advisor and RL benchmark in the background so both are ready once the 28-day simulation starts.
                     </p>
                 </div>
 

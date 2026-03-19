@@ -21,6 +21,12 @@ const ACTIVE_BACKEND_PHASES = new Set([
   'simulation',
 ]);
 
+const BACKEND_STATUS_VISIBLE_PHASES = new Set([
+  'pre-simulation',
+  'transition',
+  'simulation',
+]);
+
 const initialBackendState = {
   ml: { ready: false, state: 'idle' },
   rl: { ready: false, state: 'idle' },
@@ -38,6 +44,10 @@ function App() {
 
   const shouldManageBackends = useMemo(
     () => ACTIVE_BACKEND_PHASES.has(phase) && !simulationComplete,
+    [phase, simulationComplete]
+  );
+  const shouldShowBackendStatusUi = useMemo(
+    () => BACKEND_STATUS_VISIBLE_PHASES.has(phase) && !simulationComplete,
     [phase, simulationComplete]
   );
 
@@ -142,8 +152,22 @@ function App() {
           backendStatus={backendStatus}
         />
       )}
-      {phase === 'pre-simulation' && <PrePhase2Transition onComplete={() => setPhase('transition')} theme={theme} />}
-      {phase === 'transition' && <TransitionPhase onComplete={() => setPhase('simulation')} theme={theme} />}
+      {phase === 'pre-simulation' && (
+        <PrePhase2Transition
+          onComplete={() => setPhase('transition')}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          backendStatus={backendStatus}
+          showBackendStatusButton={backendPopupDismissed}
+          onOpenBackendStatus={() => setBackendPopupDismissed(false)}
+        />
+      )}
+      {phase === 'transition' && (
+        <TransitionPhase
+          onComplete={() => setPhase('simulation')}
+          theme={theme}
+        />
+      )}
       {phase === 'simulation' && (
         <Dashboard
           theme={theme}
@@ -155,14 +179,17 @@ function App() {
           onExitToLogin={handleExitToLogin}
           backendStatus={backendStatus}
           onSimulationComplete={() => setSimulationComplete(true)}
+          showBackendStatusButton={backendPopupDismissed}
+          onOpenBackendStatus={() => setBackendPopupDismissed(false)}
         />
       )}
-      {shouldManageBackends && (
+      {shouldManageBackends && shouldShowBackendStatusUi && (
         <BackendStatusPopup
           mlState={backendStatus.ml.state}
           rlState={backendStatus.rl.state}
           onDismiss={() => setBackendPopupDismissed(true)}
           onOpen={backendPopupDismissed ? () => setBackendPopupDismissed(false) : null}
+          phase={phase}
         />
       )}
     </div>

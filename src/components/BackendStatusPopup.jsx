@@ -46,8 +46,30 @@ const BackendStatusRow = ({ icon: Icon, title, description, state }) => {
   );
 };
 
-const BackendStatusPopup = ({ mlState, rlState, onDismiss, onOpen }) => {
+export const BackendStatusButton = ({ mlState, rlState, onOpen, className = "" }) => {
   const allReady = mlState === "ready" && rlState === "ready";
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className={`flex items-center gap-2 rounded-full border border-coffee-700 bg-coffee-800/80 px-3 py-1.5 text-xs font-bold shadow-md transition-colors hover:bg-coffee-700 ${className}`}
+    >
+      {allReady ? <Wifi className="h-3.5 w-3.5 text-emerald-400" /> : <WifiOff className="h-3.5 w-3.5 text-amber-300" />}
+      <span className="text-coffee-50">Server Status</span>
+    </button>
+  );
+};
+
+const BackendStatusPopup = ({ mlState, rlState, onDismiss, onOpen, phase }) => {
+  const allReady = mlState === "ready" && rlState === "ready";
+  const isPhase2Intro = phase === "pre-simulation";
+
+  const summaryText = allReady
+    ? "ML and RL services are awake and ready."
+    : isPhase2Intro
+      ? "We are waking the ML advisor and RL benchmark now so they can join you as Phase 2 begins."
+      : "The app is waking the assistant services in the background.";
 
   if (!onOpen) {
     return (
@@ -58,11 +80,7 @@ const BackendStatusPopup = ({ mlState, rlState, onDismiss, onOpen }) => {
               {allReady ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
               Server Status
             </div>
-            <p className="mt-1 text-xs text-coffee-300">
-              {allReady
-                ? "ML and RL services are awake and ready."
-                : "The app is waking the assistant services in the background."}
-            </p>
+            <p className="mt-1 text-xs text-coffee-300">{summaryText}</p>
           </div>
           <button
             type="button"
@@ -92,15 +110,7 @@ const BackendStatusPopup = ({ mlState, rlState, onDismiss, onOpen }) => {
     );
   }
 
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="fixed bottom-5 left-5 z-50 rounded-full border border-coffee-700/70 bg-coffee-950/92 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-coffee-100 shadow-xl backdrop-blur"
-    >
-      Server Status
-    </button>
-  );
+  return null;
 };
 
 export default BackendStatusPopup;

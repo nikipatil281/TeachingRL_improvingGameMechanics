@@ -13,6 +13,7 @@ import WeatherEffects from "./WeatherEffects";
 import EmergencyRestockModal from "./EmergencyRestockModal";
 import PolicyReviewPage from "./PolicyReviewPage";
 import PolicyQuizPage from "./PolicyQuizPage";
+import { BackendStatusButton } from "./BackendStatusPopup";
 
 import {
   initMainGameSchedule,
@@ -46,7 +47,19 @@ const createInitialPolicyQuizState = () => ({
   nextScenarioId: 2,
 });
 
-const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, onExitToLogin, userAvatar = 'Leo', backendStatus, onSimulationComplete }) => {
+const Dashboard = ({
+  theme,
+  toggleTheme,
+  shopName,
+  userName,
+  onRestart,
+  onExitToLogin,
+  userAvatar = 'Leo',
+  backendStatus,
+  onSimulationComplete,
+  showBackendStatusButton,
+  onOpenBackendStatus,
+}) => {
   const DEFAULT_PLAYER_PRICE = 1;
 
   // Game State
@@ -600,6 +613,13 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, onExitTo
           </p>
         </div>
         <div className="flex items-center gap-4 md:gap-8 justify-end w-full md:w-auto">
+          {showBackendStatusButton && onOpenBackendStatus && (
+            <BackendStatusButton
+              mlState={backendStatus?.ml?.state ?? "idle"}
+              rlState={backendStatus?.rl?.state ?? "idle"}
+              onOpen={onOpenBackendStatus}
+            />
+          )}
           <button
             onClick={toggleTheme}
             className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-coffee-700 bg-coffee-800 hover:bg-coffee-700 transition-colors text-xs font-bold shadow-md"
