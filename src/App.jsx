@@ -75,6 +75,7 @@ function App() {
     if (!shouldManageBackends) return undefined;
 
     let cancelled = false;
+    let intervalId;
 
     const refreshBackendStatus = async () => {
       setBackendStatus((current) => ({
@@ -102,16 +103,27 @@ function App() {
     };
 
     refreshBackendStatus();
-    const intervalId = window.setInterval(
-      refreshBackendStatus,
-      phase === 'simulation' ? 240000 : 180000
-    );
+    intervalId = window.setInterval(refreshBackendStatus, 15000);
+
+    const settleCadenceId = window.setInterval(() => {
+      const allReady = (
+        (backendStatus.ml.ready || backendStatus.ml.state === 'ready')
+        && (backendStatus.rl.ready || backendStatus.rl.state === 'ready')
+      );
+
+      window.clearInterval(intervalId);
+      intervalId = window.setInterval(
+        refreshBackendStatus,
+        allReady ? (phase === 'simulation' ? 240000 : 180000) : 15000
+      );
+    }, 5000);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
+      window.clearInterval(settleCadenceId);
     };
-  }, [phase, shouldManageBackends]);
+  }, [backendStatus.ml.ready, backendStatus.ml.state, backendStatus.rl.ready, backendStatus.rl.state, phase, shouldManageBackends]);
 
   return (
     <div className={`App ${theme}`}>
