@@ -113,10 +113,10 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-900/30 rounded-full blur-[120px] animate-blob [animation-delay:2s]" />
       </div>
 
-      <div className="z-10 w-full max-w-6xl bg-coffee-800/50 backdrop-blur-xl border border-coffee-700/50 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:max-h-[85vh] mt-16 md:mt-0">
+      <div className="z-10 w-full max-w-6xl bg-coffee-800/50 backdrop-blur-xl border border-coffee-700/50 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[calc(100vh-4rem)] md:max-h-[880px] mt-16 md:mt-0">
 
         {/* Image / Visual Side */}
-        <div className={`w-full md:w-1/2 relative bg-gradient-to-br ${currentStory.color} flex items-center justify-center p-8 md:p-12`}>
+        <div className={`w-full md:w-1/2 relative bg-gradient-to-br ${currentStory.color} flex items-center justify-center p-8 md:p-12 md:min-h-0`}>
           <AnimatePresence mode="wait">
             {!currentStory.isEnd ? (
               <motion.img
@@ -168,14 +168,14 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
         </div>
 
         {/* Content Side */}
-        <div className="w-full md:w-1/2 p-8 md:p-16 flex flex-col justify-between bg-coffee-800/80">
+        <div className="w-full md:w-1/2 p-8 md:p-12 flex flex-col justify-between bg-coffee-800/80 md:min-h-0 md:overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
               initial={{ x: 20, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -20, opacity: 0 }}
-              className="flex-grow flex flex-col justify-center relative"
+              className="flex-grow flex flex-col justify-center relative md:min-h-0"
             >
               {/* Story Avatar */}
               <motion.div
