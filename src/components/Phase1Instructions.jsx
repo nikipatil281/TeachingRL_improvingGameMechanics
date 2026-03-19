@@ -36,7 +36,7 @@ const Phase1Instructions = ({ onComplete, theme, toggleTheme }) => {
   }, []);
 
   return (
-    <div className={`min-h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden transition-colors duration-500 ${theme}`}>
+    <div className={`min-h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-x-hidden overflow-y-auto transition-colors duration-500 ${theme}`}>
       <style>
         {`
           .tour-image-loader {
