@@ -16,6 +16,9 @@ WEEKDAY_SALES_TARGET = 200
 WEEKEND_SALES_TARGET = 250
 LOW_SALES_PENALTY = 100.0
 WASTAGE_COST_PER_CUP = 1.5
+STANDARD_COMPETITOR_GAIN_MAX_PRICE = 7
+UMBRELLA_PRICING_TRIGGER_PRICE = 8
+UMBRELLA_PRICING_BONUS_PER_DOLLAR = 10
 
 SET_A_RANGES = {
     1: (401, 450),
@@ -94,7 +97,7 @@ def normalize_price(value):
 
 def normalize_competitor_price(value):
     try:
-        return clamp(int(round(float(value))), 3, 8)
+        return clamp(int(round(float(value))), 3, 10)
     except Exception:
         return 0
 
@@ -161,8 +164,17 @@ def apply_competitor_adjustment(demand, set_key, player_price, competitor_price)
     t = normalize_competitor_price(competitor_price)
     diff = abs(t - p)
 
-    if t >= p:
+    # Umbrella-pricing exception:
+    # once the competitor moves above $8, pricing slightly above them can still
+    # attract some demand instead of losing it.
+    if t > UMBRELLA_PRICING_TRIGGER_PRICE and p > t:
+        return max(0, int(demand + diff * UMBRELLA_PRICING_BONUS_PER_DOLLAR))
+
+    if t >= p and t <= STANDARD_COMPETITOR_GAIN_MAX_PRICE:
         return max(0, int(demand + diff * factor))
+
+    if t >= p:
+        return max(0, int(demand))
 
     return max(0, int(demand - diff * factor))
 
@@ -194,7 +206,7 @@ def create_random_state_for_day(day_name):
         bucket = random.choice(['A', 'B', 'C', 'D'])
         nearby_event = 1 if bucket in ('B', 'D') else 0
         competitor_present = 1 if bucket in ('C', 'D') else 0
-        competitor_price = random.randint(3, 8) if competitor_present else 0
+        competitor_price = random.randint(3, 10) if competitor_present else 0
 
         return {
             'day': day_name,
@@ -218,7 +230,7 @@ def create_random_state_for_day(day_name):
         'weather': random.choice(NON_SUNNY_WEATHER),
         'nearby_event': 1,
         'competitor_present': 1,
-            'competitor_price': random.randint(3, 8),
+            'competitor_price': random.randint(3, 10),
     }
 
 
@@ -241,9 +253,7 @@ def schedule_meets_weekly_constraints(schedule):
 
 
 def build_constrained_main_schedule():
-    attempts = 0
-    while attempts < 500:
-        attempts += 1
+    while True:
 
         states_by_day = {}
         for day_name in DAYS:
@@ -266,8 +276,6 @@ def build_constrained_main_schedule():
 
         if schedule_meets_weekly_constraints(schedule):
             return schedule
-
-    return [create_random_state_for_day(DAYS[i % 7]) for i in range(28)]
 
 
 class CoffeeShopEnv(gym.Env):

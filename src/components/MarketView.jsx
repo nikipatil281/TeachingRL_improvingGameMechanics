@@ -19,7 +19,7 @@ const InventoryIcon = ({ isOutOfStock }) => {
         src="/coffee-beans-bag.png"
         alt="Coffee beans inventory"
         onError={() => setImageMissing(true)}
-        className={`w-12 h-12 object-contain ${isOutOfStock ? 'opacity-90' : ''}`}
+        className={`w-13 h-12 object-contain ${isOutOfStock ? 'opacity-90' : ''}`}
       />
     );
   }
@@ -28,11 +28,12 @@ const InventoryIcon = ({ isOutOfStock }) => {
 };
 
 const EventIcon = ({ isActive }) => {
+  const [imageMissing, setImageMissing] = useState(false);
+
   if (!isActive) {
     return <Info className="w-10 h-10 text-coffee-600/80" />;
   }
 
-  const [imageMissing, setImageMissing] = useState(false);
   const fallbackColor = 'text-amber-500';
 
   if (!imageMissing) {
@@ -41,12 +42,12 @@ const EventIcon = ({ isActive }) => {
         src="/local-events-icon.png"
         alt="Local events"
         onError={() => setImageMissing(true)}
-        className="w-21 h-20 object-contain"
+        className="absolute left-[10%] top-1/2 w-[180%] h-[180%] max-w-none -translate-x-1/2 -translate-y-1/2 object-contain"
       />
     );
   }
 
-  return <AlertTriangle className={`w-12 h-12 ${fallbackColor}`} />;
+  return <AlertTriangle className={`absolute left-1/2 top-1/2 w-[128%] h-[128%] max-w-none -translate-x-1/2 -translate-y-1/2 ${fallbackColor}`} />;
 };
 
 const MarketView = ({ day, weather, inventory, isDayEnd, nearbyEvent, eventName, competitorPresent, competitorPrice, specialEvent }) => {
@@ -121,7 +122,7 @@ const MarketView = ({ day, weather, inventory, isDayEnd, nearbyEvent, eventName,
               {nearbyEvent ? 'Higher footfall expected' : 'Normal traffic levels'}
             </div>
           </div>
-          <div className="relative shrink-0 self-center">
+          <div className="relative shrink-0 self-center h-[68px] w-[68px] overflow-visible">
             <EventIcon isActive={nearbyEvent} />
           </div>
         </div>

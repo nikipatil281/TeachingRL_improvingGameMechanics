@@ -24,6 +24,8 @@ dist-ssr
 *.sw?
 
 venv/
+__pycache__/
+*.pyc
 .gemini/
 .agents/
 .agent/
@@ -33,4 +35,3 @@ node_modules/
 dist/
 dist-ssr/
 *.local
-

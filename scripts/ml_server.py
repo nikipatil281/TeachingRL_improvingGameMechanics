@@ -1,7 +1,6 @@
 import os
 
 import joblib
-import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
@@ -39,17 +38,18 @@ def predict():
 
     try:
         data = request.json
-        # Expected fields: day_of_week, weather, nearby_event, inventory, yesterday_price
+        # Expected fields: day_of_week, weather, nearby_event, inventory, competitor_present, competitor_price
         # day_of_week: string ('Monday', etc.)
         # weather: string ('Sunny', etc.)
-        # nearby_event: string ('yes', 'no')
+        # nearby_event: 0/1 or 'yes'/'no'
         # inventory: float
-        # yesterday_price: float
+        # competitor_present: 0/1
+        # competitor_price: float
 
         features_raw = [
             data.get('day_of_week', 'Monday'),
             data.get('weather', 'Sunny'),
-            data.get('nearby_event', 'no')
+            1 if str(data.get('nearby_event', 0)).strip().lower() in ('1', 'true', 'yes') else 0
         ]
         
         # Encode categorical features
@@ -57,13 +57,14 @@ def predict():
         encoded_cats = encoder.transform([features_raw])[0]
         
         # Construct full feature vector for Random Forest
-        # [Day, Weather, Event, Inventory, YesterdayPrice]
+        # [Day, Weather, Event, Inventory, CompetitorPresence, CompetitorPrice]
         full_features = [
-            encoded_cats[0], # Day
-            encoded_cats[1], # Weather
-            encoded_cats[2], # Event
-            float(data.get('inventory', 1200)),
-            float(data.get('yesterday_price', 5.0))
+            encoded_cats[0],
+            encoded_cats[1],
+            encoded_cats[2],
+            float(data.get('inventory', 5000)),
+            float(data.get('competitor_present', 0)),
+            float(data.get('competitor_price', 0)),
         ]
 
         # Predict

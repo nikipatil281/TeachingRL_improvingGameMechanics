@@ -44,6 +44,14 @@ const PolicyViewer = ({ qTable }) => {
     return `hsla(${hue}, 70%, ${lightness}%, 0.8)`;
   };
 
+  const getValueTextClass = (value) => {
+    if (value <= 0) return 'text-coffee-100';
+
+    const maxVal = 800;
+    const intensity = Math.min(1, Math.max(0, value / maxVal));
+    return intensity >= 0.65 ? 'text-coffee-950' : 'text-white';
+  };
+
   return (
     <div className="w-full bg-coffee-900/80 rounded-xl p-4 border border-coffee-700/50 backdrop-blur-md">
       <h3 className="text-lg font-bold text-emerald-400 mb-4 flex items-center gap-2">
@@ -74,7 +82,7 @@ const PolicyViewer = ({ qTable }) => {
                     style={{ backgroundColor: getColor(value) }}
                   >
                     <span className="text-[10px] uppercase font-bold text-coffee-300 mb-0.5">{action}</span>
-                    <span className="text-sm font-mono text-white font-bold">{value.toFixed(0)}</span>
+                    <span className={`text-sm font-mono font-bold ${getValueTextClass(value)}`}>{value.toFixed(0)}</span>
                     {isBest && (
                       <div className="absolute -top-2 -right-2 bg-emerald-500 text-black text-[10px] font-bold px-1.5 rounded-full">
                         BEST

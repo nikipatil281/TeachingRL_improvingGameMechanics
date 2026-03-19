@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Coffee, ArrowRight, TrendingUp, AlertTriangle, BrainCircuit, Target, Sparkles, MapPin, Sun, Moon } from 'lucide-react';
+import { Coffee, ArrowRight, TrendingUp, Scale, BrainCircuit, Target, Sparkles, MapPin, Sun, Moon } from 'lucide-react';
 import { createAvatar } from '@dicebear/core';
 import { adventurer } from '@dicebear/collection';
+
+const AVATAR_OPTIONS = ['Leo', 'Aiden', 'Riley', 'Liam', 'Sadie', 'Jocelyn', 'Ryan', 'Liliana', 'Luis', 'Mason', 'Sarah', 'Avery', 'Vivian', 'Jack', 'Alexander'];
 
 const LandingPage = ({ onComplete, theme, toggleTheme }) => {
   const [step, setStep] = useState(1);
@@ -21,8 +23,8 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
       title: "The intuition of Business",
       content: "Deciding the daily price of coffee is a balancing act. Set prices too high, and the competitor 'BeanMean' may steal your customers. Set them too low, and you'll pile up on costs!",
       image: "/aesthetic_cafe.png",
-      icon: <AlertTriangle className="w-8 h-8 text-red-500" />,
-      color: "from-red-500/20 to-orange-500/10"
+      icon: <Scale className="w-8 h-8 text-orange-400" />,
+      color: "from-orange-500/20 to-amber-500/10"
     },
     {
       id: 3,
@@ -49,18 +51,17 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
       color: "from-emerald-500/20 to-teal-500/10",
       goals: [
         { icon: <BrainCircuit className="w-4 h-4" />, text: "Understand Reinforcement Learning concepts" },
-        { icon: <TrendingUp className="w-4 h-4" />, text: "Goal: Maximise your Rewards" }
+        { icon: <TrendingUp className="w-4 h-4" />, text: "Goal: Maximise your Weekly Rewards" }
       ],
       missionImage: "/aesthetic_cafe_mission.png"
     }
   ];
 
   const [selectedAvatar, setSelectedAvatar] = useState('Leo');
-  const avatarOptions = ['Leo', 'Aiden', 'Riley', 'Liam', 'Sadie', 'Jocelyn', 'Ryan', 'Liliana', 'Luis', 'Mason', 'Sarah'];
 
   const avatarUriMap = useMemo(() => {
     const map = {};
-    avatarOptions.forEach(seed => {
+    AVATAR_OPTIONS.forEach(seed => {
       map[seed] = createAvatar(adventurer, {
         seed,
         radius: 50,
@@ -164,15 +165,6 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
             )}
           </AnimatePresence>
 
-          {/* Step Indicators */}
-          <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-3">
-            {stories.map(s => (
-              <div
-                key={s.id}
-                className={`h-2 rounded-full transition-all duration-300 ${s.id === step ? 'w-10 bg-amber-500' : `w-2.5 ${theme === 'theme-black-coffee' ? 'bg-coffee-700' : 'bg-coffee-300'}`}`}
-              />
-            ))}
-          </div>
         </div>
 
         {/* Content Side */}
@@ -185,22 +177,20 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
               exit={{ x: -20, opacity: 0 }}
               className="flex-grow flex flex-col justify-center relative"
             >
-              {/* Story Avatar - Only for "The Vision" */}
-              {step === 1 && (
-                <motion.div
-                  initial={{ scale: 0, rotate: -20 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: "spring", damping: 12, delay: 0.3 }}
-                  className="absolute top-0 right-0 w-24 h-24 p-1.5 bg-coffee-700/50 rounded-full border-2 border-amber-500/30 shadow-2xl backdrop-blur-sm z-20"
-                >
-                  <div className="w-full h-full rounded-full overflow-hidden border border-coffee-600 shadow-inner">
-                    <img src={currentUri} alt="Story Character" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 bg-amber-500 text-coffee-950 p-1.5 rounded-full shadow-lg border-2 border-coffee-800">
-                    <Sparkles className="w-3.5 h-3.5 fill-current" />
-                  </div>
-                </motion.div>
-              )}
+              {/* Story Avatar */}
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", damping: 12, delay: 0.3 }}
+                className="absolute top-0 right-0 w-24 h-24 p-1.5 bg-coffee-700/50 rounded-full border-2 border-amber-500/30 shadow-2xl backdrop-blur-sm z-20"
+              >
+                <div className="w-full h-full rounded-full overflow-hidden border border-coffee-600 shadow-inner">
+                  <img src={currentUri} alt="Story Character" className="w-full h-full object-cover" />
+                </div>
+                <div className="absolute -bottom-1 -right-1 bg-amber-500 text-coffee-950 p-1.5 rounded-full shadow-lg border-2 border-coffee-800">
+                  <Sparkles className="w-3.5 h-3.5 fill-current" />
+                </div>
+              </motion.div>
 
               <div className="mb-8">{currentStory.icon}</div>
               <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-8 bg-gradient-to-r from-coffee-100 to-coffee-400 bg-clip-text text-transparent leading-tight">
@@ -222,7 +212,7 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
                     <Sparkles className="w-3 h-3" /> This is you! Choose your avatar:
                   </div>
                   <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
-                    {avatarOptions.map((seed) => (
+                          {AVATAR_OPTIONS.map((seed) => (
                       <motion.button
                         key={seed}
                         whileHover={{ scale: 1.1 }}
@@ -252,7 +242,7 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
                   : `bg-gradient-to-r from-amber-500 to-orange-600 ${theme === 'theme-black-coffee' ? 'text-coffee-950' : 'text-coffee-100'} shadow-amber-500/20`
                   }`}
               >
-                {currentStory.isEnd ? "ENTER SIMULATION" : "CONTINUE STORY"}
+                {currentStory.isEnd ? "RULES OF SIMULATION" : "CONTINUE STORY"}
                 <ArrowRight className="w-5 h-5" />
               </motion.button>
 

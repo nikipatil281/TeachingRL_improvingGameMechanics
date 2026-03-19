@@ -1,11 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { TableProperties, ArrowLeft, Download, Sun, Moon, RotateCcw } from 'lucide-react';
+import { TableProperties, ArrowLeft, Download, Sun, Moon, RotateCcw, LogOut, Check, X, Minus } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import ProfitChart from './ProfitChart';
+import RLPipelineFlow from './RLPipelineFlow';
 
-const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRestart, onGoToQuiz }) => {
+const WEEKDAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRestart, onGoToQuiz, onExitToLogin }) => {
     const reportRef = useRef(null);
     const [isExporting, setIsExporting] = useState(false);
 
@@ -87,7 +89,9 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
                 event: record.nearbyEvent,
                 competitor: record.competitorPresent,
                 prices: [],
-                rlPrices: []
+                rlPrices: [],
+                dayCounts: {},
+                startInventories: [],
             };
         }
 
@@ -96,6 +100,12 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
         }
         if (record.rlPrice) {
             playerPolicyMap[stateKey].rlPrices.push(record.rlPrice);
+        }
+        if (record.dayName) {
+            playerPolicyMap[stateKey].dayCounts[record.dayName] = (playerPolicyMap[stateKey].dayCounts[record.dayName] || 0) + 1;
+        }
+        if (Number.isFinite(record.startInventory)) {
+            playerPolicyMap[stateKey].startInventories.push(record.startInventory);
         }
     });
 
@@ -106,29 +116,33 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
         const rlMinPrice = state.rlPrices.length > 0 ? Math.min(...state.rlPrices) : null;
         const rlMaxPrice = state.rlPrices.length > 0 ? Math.max(...state.rlPrices) : null;
 
-        // Calculate frequency map for the prices string
-        const freqs = state.prices.reduce((acc, p) => {
-            acc[p] = (acc[p] || 0) + 1;
-            return acc;
-        }, {});
-
-        // Find most frequent price
-        let mostFrequentPrice = null;
-        let maxCount = 0;
-        Object.entries(freqs).forEach(([p, c]) => {
-            if (c > maxCount) {
-                maxCount = c;
-                mostFrequentPrice = Number(p);
-            }
-        });
-
-        const distributionString = Object.entries(freqs)
-            .sort((a, b) => Number(a[0]) - Number(b[0]))
-            .map(([price, count]) => `$${Number(price).toFixed(2)}\u00A0(${count}x)`)
-            .join(', ');
+        const groupedDays = Object.entries(state.dayCounts)
+            .sort((a, b) => WEEKDAY_ORDER.indexOf(a[0]) - WEEKDAY_ORDER.indexOf(b[0]));
+        const minInventory = state.startInventories.length > 0 ? Math.min(...state.startInventories) : null;
+        const maxInventory = state.startInventories.length > 0 ? Math.max(...state.startInventories) : null;
+        const hasFullMatch = minPrice !== null && maxPrice !== null && rlMinPrice !== null && rlMaxPrice !== null
+            && minPrice >= rlMinPrice
+            && maxPrice <= rlMaxPrice;
+        const hasPartialMatch = !hasFullMatch
+            && minPrice !== null
+            && maxPrice !== null
+            && rlMinPrice !== null
+            && rlMaxPrice !== null
+            && Math.max(minPrice, rlMinPrice) <= Math.min(maxPrice, rlMaxPrice);
 
         return {
             ...state,
+            groupedDays,
+            dayDistributionString: groupedDays.length > 0
+                ? groupedDays
+                    .map(([dayName]) => dayName.slice(0, 2))
+                    .join(', ')
+                : 'N/A',
+            inventoryRangeString: minInventory === null
+                ? 'N/A'
+                : minInventory === maxInventory
+                    ? `${minInventory}`
+                    : `${minInventory} - ${maxInventory}`,
             minPrice,
             maxPrice,
             rlRangeString: rlMinPrice === null
@@ -136,8 +150,7 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
                 : rlMinPrice === rlMaxPrice
                     ? `$${rlMinPrice.toFixed(2)}`
                     : `$${rlMinPrice.toFixed(2)} - $${rlMaxPrice.toFixed(2)}`,
-            distributionString,
-            mostFrequentPrice,
+            policyMatch: hasFullMatch ? 'full' : hasPartialMatch ? 'partial' : 'none',
             count: state.prices.length
         };
     });
@@ -146,17 +159,16 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
         <div className={`min-h-screen bg-coffee-950 text-coffee-100 p-4 md:p-8 flex flex-col items-center animate-in fade-in duration-500 overflow-y-auto ${theme}`}>
             {/* Header / Actions */}
             <div className="w-full max-w-6xl flex justify-between items-center mb-8">
-                <motion.button
-                    whileHover={{ scale: 1.05, x: -5 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={onBackToDebrief}
-                    className="flex items-center gap-2 text-coffee-300 hover:text-white transition-colors bg-coffee-800/50 hover:bg-coffee-700/50 px-4 py-2 rounded-lg border border-coffee-700/50"
-                >
-                    <ArrowLeft className="w-5 h-5" />
-                    Back to Debrief
-                </motion.button>
-
                 <div className="flex gap-4">
+                    <motion.button
+                        whileHover={{ scale: 1.05, x: -5 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onBackToDebrief}
+                        className="flex items-center gap-2 text-coffee-300 hover:text-coffee-100 transition-colors bg-coffee-800/50 hover:bg-coffee-700/50 px-4 py-2 rounded-lg border border-coffee-700/50"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                        Back to Debrief
+                    </motion.button>
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -166,12 +178,24 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
                         <RotateCcw className="w-4 h-4" />
                         Run Simulation Again
                     </motion.button>
-                    <button
-                        onClick={toggleTheme}
-                        className="p-2 bg-coffee-800/50 hover:bg-amber-500 hover:text-coffee-900 rounded-full border border-coffee-700/50 transition-all text-coffee-200"
-                    >
-                        {theme === 'theme-latte' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                    </button>
+                </div>
+
+                <div className="flex gap-4">
+                    <div className="relative group">
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={onGoToQuiz}
+                            className="bg-amber-600 hover:bg-amber-500 text-coffee-950 font-bold py-2 px-4 rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.25)] transition-all"
+                        >
+                            Go to Quiz
+                        </motion.button>
+                        <div className="absolute right-0 top-full mt-2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-20">
+                            <div className="bg-coffee-950 border border-coffee-700 text-coffee-100 text-xs rounded-lg px-3 py-2 shadow-xl whitespace-nowrap">
+                                Test your understanding with some quick policy questions.
+                            </div>
+                        </div>
+                    </div>
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -180,8 +204,23 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
                         className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <Download className="w-4 h-4" />
-                        {isExporting ? "Exporting..." : "Export PDF"}
+                        {isExporting ? "Exporting..." : "Export report to PDF"}
                     </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onExitToLogin}
+                        className="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg shadow-[0_0_15px_rgba(220,38,38,0.28)] transition-all flex items-center gap-2"
+                    >
+                        <LogOut className="w-4 h-4" />
+                        Exit the Session
+                    </motion.button>
+                    <button
+                        onClick={toggleTheme}
+                        className="p-2 bg-coffee-800/50 hover:bg-amber-500 hover:text-coffee-900 rounded-full border border-coffee-700/50 transition-all text-coffee-200"
+                    >
+                        {theme === 'theme-latte' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                    </button>
                 </div>
             </div>
 
@@ -192,18 +231,6 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
                     <h2 className="text-3xl font-bold text-coffee-100">Reinforcement Learning Optimal Policy Review</h2>
                 </div>
 
-                <div className="w-full mb-8 bg-coffee-800/70 border border-coffee-700 rounded-xl p-4">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <p className="text-sm text-coffee-200">Optional: test your understanding with one quick policy question.</p>
-                        <button
-                            onClick={onGoToQuiz}
-                            className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-coffee-950 font-bold text-sm transition-colors"
-                        >
-                            Go to Quiz
-                        </button>
-                    </div>
-                </div>
-
                 {rlFallbackDays > 0 && (
                     <div className="w-full mb-6 bg-red-900/20 border border-red-600/40 rounded-xl p-4">
                         <p className="text-sm text-red-200">
@@ -212,13 +239,8 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
                     </div>
                 )}
 
-                {/* Final Chart Stretched - NOW USING PROFIT CHART */}
-                <div className="w-full h-[550px] mb-8">
-                    <ProfitChart data={history} showRLAgents={true} />
-                </div>
-
                 {/* Player Policy Summary Table */}
-                <div className="w-full flex-1 flex flex-col mb-4 bg-coffee-800 border border-coffee-700 rounded-xl overflow-hidden mt-8">
+                <div className="w-full flex-1 flex flex-col mb-4 bg-coffee-800 border border-coffee-700 rounded-xl overflow-hidden">
                     <div className="p-4 bg-coffee-900/50 border-b border-coffee-700">
                         <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
                             <TableProperties className="w-5 h-5" />
@@ -231,57 +253,109 @@ const PolicyReviewPage = ({ history, theme, toggleTheme, onBackToDebrief, onRest
                         <table className="w-full text-sm text-coffee-200">
                             <thead className="bg-coffee-900/30 text-coffee-400 uppercase text-[10px] sticky top-0">
                                 <tr>
-                                    <th className="px-4 py-3 font-bold border-b border-coffee-700 text-left">Weather</th>
-                                    <th className="px-4 py-3 font-bold border-b border-coffee-700 text-center">Local Event</th>
-                                    <th className="px-4 py-3 font-bold border-b border-coffee-700 text-center">Competitor</th>
-                                    <th className="px-4 py-3 font-bold border-b border-coffee-700 text-right">Price Range</th>
-                                    <th className="px-4 py-3 font-bold border-b border-coffee-700 text-right text-emerald-400">RL's Actual Range</th>
-                                    <th className="px-4 py-3 font-bold border-b border-coffee-700 text-right text-amber-400">Distribution</th>
+                                    <th className="px-3 py-2.5 font-bold border-b border-coffee-700 text-left whitespace-nowrap">Weather</th>
+                                    <th className="px-3 py-2.5 font-bold border-b border-coffee-700 text-left whitespace-nowrap">Day(s)</th>
+                                    <th className="px-3 py-2.5 font-bold border-b border-coffee-700 text-center whitespace-nowrap">Start Inventory</th>
+                                    <th className="px-3 py-2.5 font-bold border-b border-coffee-700 text-center whitespace-nowrap">Local Event</th>
+                                    <th className="px-3 py-2.5 font-bold border-b border-coffee-700 text-center whitespace-nowrap">Competitor</th>
+                                    <th className="px-3 py-2.5 font-bold border-b border-coffee-700 text-right text-orange-400 whitespace-nowrap">RL's Learned Range</th>
+                                    <th className="px-3 py-2.5 font-bold border-b border-coffee-700 text-right text-emerald-400 whitespace-nowrap">Your Price Range</th>
+                                    <th className="px-3 py-2.5 font-bold border-b border-coffee-700 text-center">
+                                        <div className="group relative flex justify-center">
+                                            <span className="cursor-help">Range Match</span>
+                                            <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-44 rounded-lg border border-coffee-700 bg-coffee-950/95 px-3 py-2 text-[9px] font-medium normal-case text-coffee-300 opacity-0 shadow-xl transition-opacity duration-200 group-hover:opacity-100">
+                                                <p className="text-center leading-snug">
+                                                    Shows whether your chosen range matched the RL agent&apos;s optimal range.
+                                                </p>
+                                                <div className="mt-2 grid gap-1.5">
+                                                    <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                                                        <Check className="w-3 h-3 text-emerald-400" />
+                                                        in range
+                                                    </span>
+                                                    <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                                                        <Minus className="w-3 h-3 text-amber-400" />
+                                                        partial
+                                                    </span>
+                                                    <span className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                                                        <X className="w-3 h-3 text-red-400" />
+                                                        out of range
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-coffee-700/50">
                                 {playerPolicyTable.length > 0 ? (
                                     playerPolicyTable.sort((a, b) => b.count - a.count).map((state, idx) => (
                                         <tr key={idx} className="hover:bg-coffee-700/20 transition-colors">
-                                            <td className="px-4 py-3 whitespace-nowrap">
+                                            <td className="px-3 py-2.5 whitespace-nowrap">
                                                 <span className={`font-medium px-2 py-1 rounded bg-coffee-900 border border-coffee-700 ${state.weather === 'Sunny' ? 'text-amber-400' : 'text-blue-300'}`}>
                                                     {state.weather}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-3 py-2.5 text-left text-xs text-coffee-300 whitespace-nowrap">
+                                                {state.dayDistributionString}
+                                            </td>
+                                            <td className="px-3 py-2.5 text-center font-mono text-xs text-coffee-300 whitespace-nowrap">
+                                                {state.inventoryRangeString}
+                                            </td>
+                                            <td className="px-3 py-2.5 text-center">
                                                 {state.event ? (
                                                     <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold">Yes</span>
                                                 ) : (
                                                     <span className="text-coffee-500 text-xs">No</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-3 py-2.5 text-center">
                                                 {state.competitor ? (
                                                     <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold">Yes</span>
                                                 ) : (
                                                     <span className="text-coffee-500 text-xs">No</span>
                                                 )}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-mono text-coffee-400 text-xs">
-                                                {state.minPrice === state.maxPrice
+                                            <td className="px-3 py-2.5 text-right font-mono text-orange-400 text-xs font-bold bg-orange-500/5 whitespace-nowrap">
+                                                {state.rlRangeString}
+                                            </td>
+                                            <td className="px-3 py-2.5 text-right font-mono text-emerald-400 text-xs font-bold bg-emerald-500/5 whitespace-nowrap">
+                                                {state.minPrice === null || state.maxPrice === null
+                                                    ? 'N/A'
+                                                    : state.minPrice === state.maxPrice
                                                     ? `$${state.minPrice.toFixed(2)}`
                                                     : `$${state.minPrice.toFixed(2)} - $${state.maxPrice.toFixed(2)}`}
                                             </td>
-                                            <td className="px-4 py-3 text-right font-mono text-emerald-400 text-xs font-bold bg-emerald-500/5">
-                                                {state.rlRangeString}
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-mono text-amber-400 text-[11px] leading-relaxed max-w-[150px] truncate hover:whitespace-normal hover:break-all">
-                                                {state.distributionString}
+                                            <td className="px-3 py-2.5 text-center">
+                                                {state.policyMatch === 'full' ? (
+                                                    <Check className="w-4 h-4 mx-auto text-emerald-400" />
+                                                ) : state.policyMatch === 'partial' ? (
+                                                    <Minus className="w-4 h-4 mx-auto text-amber-400" />
+                                                ) : (
+                                                    <X className="w-4 h-4 mx-auto text-red-400" />
+                                                )}
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="7" className="p-8 text-center text-coffee-500 italic">No pricing entries found yet.</td>
+                                        <td colSpan="8" className="p-8 text-center text-coffee-500 italic">No pricing entries found yet.</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <div className="w-full mt-4 bg-coffee-800 border border-coffee-700 rounded-xl overflow-hidden">
+                    <div className="p-4 bg-coffee-900/50 border-b border-coffee-700">
+                        <h3 className="text-lg font-bold text-orange-400">How the RL Pipeline Works</h3>
+                        <p className="text-xs text-coffee-400 mt-1">
+                            This flow shows how the RL agent learns pricing over time by observing the market, acting, and updating its policy from rewards and penalties.
+                        </p>
+                    </div>
+
+                    <div className="p-4 md:p-6">
+                        <RLPipelineFlow theme={theme} />
                     </div>
                 </div>
 

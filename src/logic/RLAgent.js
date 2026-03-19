@@ -11,7 +11,7 @@ class RLAgent {
   normalizePrice(value) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return 5;
-    return Math.min(10, Math.max(1, Math.round(numeric)));
+    return Math.min(10, Math.max(1, Math.round(numeric * 2) / 2));
   }
 
   async getAction(conditions, yesterdayPrice = 4.50) {

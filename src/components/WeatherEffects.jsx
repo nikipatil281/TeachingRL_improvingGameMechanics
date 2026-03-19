@@ -1,34 +1,48 @@
 import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const seedFromString = (value) => (
+  Array.from(value).reduce((seed, char, index) => seed + (char.charCodeAt(0) * (index + 1)), 0)
+);
+
+const createSeededRandom = (seed) => {
+  let state = seed >>> 0;
+
+  return () => {
+    state = (1664525 * state + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+};
+
 const WeatherEffects = ({ weather }) => {
   const isRainy = weather === 'Rainy';
   const isCloudy = weather === 'Cloudy';
 
-  // Generate deterministic rain drops based on weather state
+  // Generate deterministic particle layouts so renders stay pure and stable.
   const rainDrops = useMemo(() => {
     if (!isRainy) return [];
+    const random = createSeededRandom(seedFromString(`rain-${weather}`));
     return Array.from({ length: 40 }).map((_, i) => ({
       id: i,
-      left: `${Math.random() * 100}%`,
-      delay: Math.random() * 2,
-      duration: 0.8 + Math.random() * 0.5,
-      size: Math.random() > 0.5 ? 'small' : 'large'
+      left: `${random() * 100}%`,
+      delay: random() * 2,
+      duration: 0.8 + random() * 0.5,
+      size: random() > 0.5 ? 'small' : 'large'
     }));
-  }, [isRainy]);
+  }, [isRainy, weather]);
 
-  // Generate deterministic clouds
   const clouds = useMemo(() => {
     if (!isCloudy && !isRainy) return [];
+    const random = createSeededRandom(seedFromString(`clouds-${weather}`));
     return Array.from({ length: 5 }).map((_, i) => ({
       id: i,
-      top: `${Math.random() * 30}%`,
+      top: `${random() * 30}%`,
       left: `${(i / 5) * 100}%`,
-      scale: 0.5 + Math.random() * 1.5,
-      duration: 20 + Math.random() * 40,
-      delay: Math.random() * -20 // start midway
+      scale: 0.5 + random() * 1.5,
+      duration: 20 + random() * 40,
+      delay: random() * -20
     }));
-  }, [isCloudy, isRainy]);
+  }, [isCloudy, isRainy, weather]);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">

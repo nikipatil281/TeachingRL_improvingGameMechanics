@@ -13,18 +13,19 @@ export const initMLModel = async () => {
 };
 
 /**
- * Sequential ML Predictor
+ * Basic ML predictor
  * @param {string} dayOfWeek ('Monday', etc.)
  * @param {string} weather ('Sunny', etc.)
- * @param {boolean} nearbyEvent 
- * @param {number} inventory 
- * @param {number} yesterdayPrice 
+ * @param {boolean} nearbyEvent
+ * @param {number} inventory
+ * @param {boolean} competitorPresent
+ * @param {number} competitorPrice
  */
-export const getMLPrice = async (dayOfWeek, weather, nearbyEvent, inventory, yesterdayPrice) => {
+export const getMLPrice = async (dayOfWeek, weather, nearbyEvent, inventory, competitorPresent, competitorPrice) => {
     const normalizePrice = (value) => {
         const numeric = Number(value);
         if (!Number.isFinite(numeric)) return 5;
-        return Math.min(10, Math.max(1, Math.round(numeric)));
+        return Math.min(10, Math.max(1, Math.round(numeric * 2) / 2));
     };
 
     try {
@@ -34,9 +35,10 @@ export const getMLPrice = async (dayOfWeek, weather, nearbyEvent, inventory, yes
             body: JSON.stringify({
                 day_of_week: dayOfWeek,
                 weather: weather,
-                nearby_event: nearbyEvent ? "yes" : "no",
+                nearby_event: nearbyEvent ? 1 : 0,
                 inventory: inventory,
-                yesterday_price: yesterdayPrice
+                competitor_present: competitorPresent ? 1 : 0,
+                competitor_price: competitorPrice ?? 0
             })
         });
 
@@ -54,5 +56,5 @@ export const getMLPrice = async (dayOfWeek, weather, nearbyEvent, inventory, yes
 };
 
 export const getMLFormula = () => {
-    return "Random Forest (Sequential RF) - Real Inference";
+    return "Random Forest - Real Inference";
 };

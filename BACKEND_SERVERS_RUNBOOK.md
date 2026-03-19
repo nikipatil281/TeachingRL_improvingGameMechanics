@@ -2,7 +2,7 @@
 
 Use this whenever you run the app locally and want real model-driven prices (not fallback values).
 
-## 1) Python environment setup (one-time)
+## 1) Python environment setup (one-time) - FIRST TIME
 
 From repo root:
 

@@ -74,7 +74,7 @@ const Login = ({ onJoin, theme, toggleTheme, userName }) => {
                 <Target className="w-8 h-8 md:w-10 md:h-10 text-amber-500" />
               </div>
 
-              <h2 className="text-2xl md:text-3xl font-black mb-1 md:mb-2 text-white">Join Session</h2>
+              <h2 className="text-2xl md:text-3xl font-black mb-1 md:mb-2 text-coffee-100">Join Session</h2>
               <p className="text-coffee-400 text-xs md:text-sm mb-6 md:mb-8 text-center leading-tight">Enter details to start simulation.</p>
 
               <form onSubmit={handleJoin} className="w-full space-y-3 relative z-10">

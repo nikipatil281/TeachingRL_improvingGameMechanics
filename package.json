@@ -12,24 +12,17 @@
   "dependencies": {
     "@dicebear/collection": "^9.3.2",
     "@dicebear/core": "^9.3.2",
-    "canvas-confetti": "^1.9.4",
-    "clsx": "^2.1.1",
+    "@xyflow/react": "^12.10.1",
     "framer-motion": "^12.34.2",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.0",
     "lucide-react": "^0.575.0",
-    "ml-cart": "^2.1.1",
-    "ml-random-forest": "^2.1.0",
-    "papaparse": "^5.5.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "recharts": "^3.7.0",
-    "tailwind-merge": "^3.5.0"
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
-    "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.17",
     "eslint": "^9.39.1",

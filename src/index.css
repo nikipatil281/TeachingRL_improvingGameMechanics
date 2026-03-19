@@ -83,3 +83,66 @@
     @apply bg-coffee-600;
   }
 }
+
+@layer components {
+  .rl-pipeline-surface {
+    background:
+      radial-gradient(circle at top, rgba(120, 53, 15, 0.16), transparent 42%),
+      linear-gradient(180deg, rgba(41, 28, 20, 0.72), rgba(28, 25, 23, 0.9));
+  }
+
+  .theme-latte .rl-pipeline-surface {
+    background:
+      radial-gradient(circle at top, rgba(217, 119, 6, 0.18), transparent 42%),
+      linear-gradient(180deg, rgba(255, 249, 243, 0.98), rgba(233, 213, 190, 1));
+  }
+
+  .rl-pipeline-flow .react-flow__controls {
+    @apply overflow-hidden rounded-2xl border border-coffee-700/70 bg-coffee-950/80 shadow-xl backdrop-blur;
+  }
+
+  .rl-pipeline-flow .react-flow__controls-button {
+    @apply h-9 w-9 border-b border-coffee-700/60 bg-transparent text-coffee-200 transition-colors;
+  }
+
+  .rl-pipeline-flow .react-flow__controls-button:hover {
+    @apply bg-coffee-800/80 text-coffee-50;
+  }
+
+  .rl-pipeline-flow .react-flow__controls-button:last-child {
+    border-bottom-width: 0;
+  }
+
+  .rl-pipeline-flow .react-flow__controls-button svg {
+    fill: currentColor;
+  }
+
+  .theme-latte .rl-pipeline-flow .react-flow__controls {
+    @apply border-coffee-500/55 bg-white/90 shadow-lg;
+  }
+
+  .theme-latte .rl-pipeline-flow .react-flow__controls-button {
+    @apply border-coffee-500/30 text-coffee-900;
+  }
+
+  .theme-latte .rl-pipeline-flow .react-flow__controls-button:hover {
+    @apply bg-coffee-100/80 text-coffee-950;
+  }
+
+  .rl-pipeline-flow .react-flow__minimap {
+    @apply overflow-hidden rounded-2xl border border-coffee-700/70 bg-coffee-950/75 shadow-xl backdrop-blur;
+  }
+
+  .rl-pipeline-flow .react-flow__attribution {
+    @apply border-0 bg-transparent px-0 py-0 text-[9px] text-coffee-500 shadow-none opacity-25;
+  }
+
+  .rl-pipeline-flow .react-flow__attribution a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .theme-latte .rl-pipeline-flow .react-flow__attribution {
+    @apply text-coffee-700 opacity-45;
+  }
+}

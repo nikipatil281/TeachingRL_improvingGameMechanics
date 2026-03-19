@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useEffectEvent } from "react";
 import { Play, RotateCcw, DollarSign, Coffee, Moon, Sun, TrendingUp, TrendingDown, Info, CheckCircle, ArrowRight, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createAvatar } from "@dicebear/core";
+import { bottts } from "@dicebear/collection";
 
 import MarketView from "./MarketView";
 import ProfitChart from "./ProfitChart";
@@ -26,7 +28,26 @@ import {
 import { getMLPrice, initMLModel } from "../logic/MLAgent";
 import { rlAgent } from "../logic/RLAgent";
 
-const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvatar = 'Leo' }) => {
+const createInitialPolicyQuizState = () => ({
+  answers: {},
+  scenarios: [
+    {
+      id: 1,
+      day: "Monday",
+      weather: "Sunny",
+      traffic: "normal with no events",
+      competitor: "absent",
+      competitorPrice: "",
+      optimalPrice: "",
+    },
+  ],
+  submitAttempted: false,
+  submitted: false,
+  nextScenarioId: 2,
+});
+
+const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, onExitToLogin, userAvatar = 'Leo' }) => {
+  const DEFAULT_PLAYER_PRICE = 1;
 
   // Game State
   const [day, setDay] = useState(1);
@@ -34,7 +55,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
     initMainGameSchedule(true);
     return generateMainGameConditions(1);
   });
-  const [playerPrice, setPlayerPrice] = useState(5);
+  const [playerPrice, setPlayerPrice] = useState(DEFAULT_PLAYER_PRICE);
 
   // Independent Weekly Inventories for Phase 2
   const [playerInventory, setPlayerInventory] = useState(WEEKLY_START_INVENTORY);
@@ -45,9 +66,22 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
   const [history, setHistory] = useState([
     {
       day: "Start",
+      dayName: "",
       playerRevenue: 0,
+      playerProfit: 0,
+      playerGrossProfit: 0,
+      playerReward: 0,
       mlRevenue: 0,
+      mlProfit: 0,
+      mlGrossProfit: 0,
+      mlReward: 0,
       rlRevenue: 0,
+      rlProfit: 0,
+      rlGrossProfit: 0,
+      rlReward: 0,
+      competitorRevenue: 0,
+      competitorProfit: 0,
+      competitorGrossProfit: 0,
       playerSales: 0,
       mlSales: 0,
       rlSales: 0,
@@ -63,8 +97,8 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
   const [modalOpen, setModalOpen] = useState(false);
   const [weeklyModalOpen, setWeeklyModalOpen] = useState(false);
   const [weekData, setWeekData] = useState(null);
-  const [toast, setToast] = useState(null);
-  const [gameActive, setGameActive] = useState(true);
+  const [toast] = useState(null);
+  const [gameActive] = useState(true);
   const [mlReady, setMlReady] = useState(false);
   const [showRestockModal, setShowRestockModal] = useState(false);
   const [pendingNextDayStr, setPendingNextDayStr] = useState(null);
@@ -73,15 +107,29 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
   const [pendingWeeklyStats, setPendingWeeklyStats] = useState(null);
   const [showPolicyPage, setShowPolicyPage] = useState(false);
   const [showPolicyQuizPage, setShowPolicyQuizPage] = useState(false);
+  const [policyQuizState, setPolicyQuizState] = useState(createInitialPolicyQuizState);
+  const mutedPanelClass = showPopup
+    ? "opacity-55 grayscale brightness-75"
+    : "opacity-100 grayscale-0 brightness-100";
+  const mlAvatarUri = React.useMemo(
+    () =>
+      createAvatar(bottts, {
+        seed: "Leo",
+        radius: 16,
+      }).toDataUri(),
+    []
+  );
 
   const toGamePrice = (value) => getNormalizedPrice(value);
 
+  const recallHistory = showPopup ? history.slice(0, -1) : history;
+
   // Dynamic Memory Recall
   const getMemoryRecall = () => {
-    if (day <= 7 || history.length <= 1) return null;
+    if (day <= 7 || recallHistory.length <= 1) return null;
 
     // Find past days that have the EXACT same state ID (calculated in generateMainGameConditions)
-    const pastSimilarDays = history.filter((h, index) =>
+    const pastSimilarDays = recallHistory.filter((h, index) =>
       index > 0 &&
       typeof h.day === 'string' &&
       h.day.includes("Day ") &&
@@ -114,7 +162,9 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
     init();
   }, []);
 
-  async function updateSuggestions() {
+  const updateSuggestions = useEffectEvent(async () => {
+    if (!mlReady) return;
+
     const currentDayName = conditions.day || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][(day - 1) % 7];
 
     // Async ML prediction
@@ -123,7 +173,8 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
       conditions.weather,
       conditions.nearbyEvent,
       mlInventory,
-      history[history.length - 1]?.mlPrice || 4.50
+      conditions.competitorPresent,
+      conditions.competitorPrice || 0
     );
     setMLSuggestion(toGamePrice(mlP));
 
@@ -138,7 +189,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
         price: toGamePrice(rlResult.price)
       });
     }
-  };
+  });
 
   // 2. Update Suggestions when conditions change
   useEffect(() => {
@@ -215,6 +266,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
     const playerRewardComponent = playerBreakdown.gross - playerBreakdown.cogs;
     const mlRewardComponent = mlBreakdown.gross - mlBreakdown.cogs;
     const rlRewardComponent = rlBreakdown.gross - rlBreakdown.cogs;
+    const competitorRewardComponent = compBreakdown.gross - compBreakdown.cogs;
 
     const nextPlayerInv = playerInventory - playerSales;
     const nextMlInv = mlInventory - mlSales;
@@ -274,17 +326,21 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
       rlDailyRewardPoints: parseFloat(rlRewardComponent.toFixed(2)),
       rlDailyPenaltyPoints: parseFloat(rlPenaltyComponent.toFixed(2)),
 
-      // Cumulative Net Profit
-      playerRevenue: (lastRecord.playerRevenue || 0) + playerDailyProfit,
-      mlRevenue: (lastRecord.mlRevenue || 0) + mlDailyProfit,
-      rlRevenue: (lastRecord.rlRevenue || 0) + rlDailyProfit,
-      competitorRevenue: (lastRecord.competitorRevenue || 0) + compDailyProfit,
+      // Cumulative Revenue
+      playerRevenue: (lastRecord.playerRevenue || 0) + playerBreakdown.gross,
+      mlRevenue: (lastRecord.mlRevenue || 0) + mlBreakdown.gross,
+      rlRevenue: (lastRecord.rlRevenue || 0) + rlBreakdown.gross,
+      competitorRevenue: (lastRecord.competitorRevenue || 0) + compBreakdown.gross,
 
       // Cumulative Profit (chart compatibility)
       playerProfit: (lastRecord.playerProfit || 0) + playerDailyProfit,
       mlProfit: (lastRecord.mlProfit || 0) + mlDailyProfit,
       rlProfit: (lastRecord.rlProfit || 0) + rlDailyProfit,
       competitorProfit: (lastRecord.competitorProfit || 0) + compDailyProfit,
+      playerGrossProfit: (lastRecord.playerGrossProfit || 0) + playerRewardComponent,
+      mlGrossProfit: (lastRecord.mlGrossProfit || 0) + mlRewardComponent,
+      rlGrossProfit: (lastRecord.rlGrossProfit || 0) + rlRewardComponent,
+      competitorGrossProfit: (lastRecord.competitorGrossProfit || 0) + competitorRewardComponent,
 
       // Daily Gross Revenue
       playerDailyRevenue: playerBreakdown.gross,
@@ -297,6 +353,10 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
       mlDailyProfit,
       rlDailyProfit,
       competitorDailyProfit: compDailyProfit,
+      playerDailyGrossProfit: playerRewardComponent,
+      mlDailyGrossProfit: mlRewardComponent,
+      rlDailyGrossProfit: rlRewardComponent,
+      competitorDailyGrossProfit: competitorRewardComponent,
 
       // Daily Sales
       playerSales,
@@ -388,7 +448,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
       color: 'blue',
       icon: <Info />,
       title: 'Daily Results',
-      value: playerDailyProfit,
+      value: playerRewardComponent,
       playerSales,
       playerReward: playerDailyReward,
       showZeroMarginInsight: normalizedPlayerPrice === 1
@@ -428,6 +488,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
     cInv = WEEKLY_START_INVENTORY
   ) => {
     setDay(nextDayNum);
+    setPlayerPrice(DEFAULT_PLAYER_PRICE);
     const nextConditions = generateMainGameConditions(nextDayNum);
     setConditions(nextConditions);
 
@@ -492,6 +553,10 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
         theme={theme}
         toggleTheme={toggleTheme}
         onBackToPolicyReview={() => setShowPolicyQuizPage(false)}
+        onRestart={handleRestart}
+        onExitToLogin={onExitToLogin}
+        quizState={policyQuizState}
+        setQuizState={setPolicyQuizState}
       />
     );
   }
@@ -506,6 +571,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
         theme={theme}
         toggleTheme={toggleTheme}
         onRestart={handleRestart}
+        onExitToLogin={onExitToLogin}
       />
     );
   }
@@ -578,7 +644,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex flex-col gap-4 flex-grow min-h-0">
             {/* Tier 1: Conditions (Full Width) */}
-            <div className="w-full shrink-0">
+            <div className={`w-full shrink-0 transition-all duration-300 ${mutedPanelClass}`}>
               <MarketView
                 day={conditions.day}
                 weather={conditions.weather}
@@ -601,7 +667,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
               </div>
 
               {/* Animation / Simulation Box */}
-              <div className="md:w-1/2 bg-coffee-800/50 rounded-2xl h-full flex flex-col overflow-hidden relative group">
+              <div className={`md:w-1/2 bg-coffee-800/50 rounded-2xl h-full flex flex-col overflow-hidden relative group transition-all duration-300 ${mutedPanelClass}`}>
                 <div className="absolute inset-0 w-full h-full xl:bg-coffee-900/80 overflow-hidden flex items-center justify-center">
                   <div className="absolute inset-0 w-full h-full">
                     <CafeMap shopName={shopName} weather={conditions.weather} competitorPresent={conditions.competitorPresent} userAvatar={userAvatar} />
@@ -618,18 +684,18 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                 <div className={`${theme === 'theme-latte'
                   ? 'bg-gradient-to-br from-amber-100/85 via-amber-50/80 to-orange-100/75 border-amber-500/70 ring-amber-500/35 shadow-amber-500/20'
                   : 'bg-gradient-to-br from-amber-700/35 via-coffee-700/85 to-coffee-800/85 border-amber-400/55 ring-amber-300/35 shadow-amber-900/20'
-                  } p-4 rounded-xl border ring-1 shadow-xl relative overflow-hidden flex flex-col h-full gap-3`}>
+                  } p-4 rounded-xl border ring-1 shadow-xl relative overflow-hidden flex flex-col h-full gap-3 transition-all duration-300 ${mutedPanelClass}`}>
                   {/* Decor */}
                   <div className={`absolute -right-4 -top-4 w-20 h-20 rounded-full blur-2xl pointer-events-none ${theme === 'theme-latte' ? 'bg-amber-300/45' : 'bg-amber-400/30'}`} />
 
                   {/* TOP: Labels, Slider, Input Side-by-Side */}
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-amber-50 font-extrabold uppercase tracking-wider shrink-0 bg-amber-200/10 border border-amber-300/30 px-2 py-0.5 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.35)]">Set Price for the day:</span>
+                    <span className={`text-sm font-extrabold uppercase tracking-wider shrink-0 bg-amber-200/10 border border-amber-300/30 px-2 py-0.5 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${theme === 'theme-latte' ? 'text-amber-900' : 'text-amber-50'}`}>Set Price for the day:</span>
                     <input
                       type="range"
                       min="1"
                       max="10"
-                      step="0.5"
+                      step="1"
                       value={playerPrice}
                       onChange={(e) => setPlayerPrice(parseFloat(e.target.value))}
                       className="flex-grow h-2 bg-coffee-950/80 rounded-lg appearance-none cursor-pointer accent-amber-400 shadow-inner"
@@ -640,25 +706,25 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                         type="number"
                         min="1"
                         max="10"
-                        step="0.50"
+                        step="1"
                         value={playerPrice}
                         onChange={(e) => setPlayerPrice(e.target.value)}
                         onBlur={(e) => {
                           let val = parseFloat(e.target.value);
                           if (isNaN(val)) val = 1;
-                          val = Math.round(val / 0.5) * 0.5;
+                          val = Math.round(val);
                           if (val < 1) val = 1;
                           if (val > 10) val = 10;
                           setPlayerPrice(val);
                         }}
-                        className="w-16 bg-coffee-900/80 border border-amber-600/40 text-amber-200 text-base font-black rounded-lg px-2 py-0.5 focus:outline-none focus:border-amber-400 transition-colors shadow-inner"
+                        className={`w-16 bg-coffee-900/80 border border-amber-600/40 text-base font-black rounded-lg px-2 py-0.5 focus:outline-none focus:border-amber-400 transition-colors shadow-inner ${theme === 'theme-latte' ? 'text-amber-900' : 'text-amber-200'}`}
                       />
                     </div>
                   </div>
 
                   {/* MIDDLE: Memory Retrieval Box (Full Width) */}
                   <div className="w-full">
-                    {memoryData && (
+                    {memoryData && !showPopup && (
                       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-blue-900/20 border border-blue-500/30 p-2 rounded-lg text-[10px] lg:text-[11px] text-blue-200 leading-snug w-full text-left">
                         <div className="font-bold text-blue-800 dark:text-blue-400 mb-0.5 flex items-center gap-1"><Info className="w-3 h-3" /> If you wanna try exploiting...</div>
                         <span className="text-blue-900 dark:text-blue-200">
@@ -682,7 +748,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                     {gameActive ? (
                       <>
                         <Play className="fill-current w-4 h-4 shrink-0" />
-                        <span>Action: Set price for day {day} and simulate</span>
+                        <span>Action: Set price for today</span>
                       </>
                     ) : (
                       "ENDED"
@@ -698,8 +764,11 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                 {/* Wait, user asked to separate ML box and insight box. Let's arrange them side by side. */}
                 <div className="flex flex-row gap-4 h-[180px]">
                    {/* Insight 1: ML Suggestion (Sequential RF) */}
-                  <div className={`w-1/2 p-4 bg-coffee-800/80 rounded-xl shadow-2xl border ${mlReady ? 'border-amber-500/50' : 'border-coffee-700 opacity-50'} flex flex-col justify-between relative overflow-hidden transition-all duration-500`}>
+                  <div className={`w-[42%] p-4 bg-coffee-800/80 rounded-xl shadow-2xl border ${mlReady ? 'border-amber-500/50' : 'border-coffee-700 opacity-50'} flex flex-col justify-between relative overflow-hidden transition-all duration-300 ${mutedPanelClass}`}>
                     <div className={`absolute inset-0 ${mlReady ? 'bg-amber-500/5' : 'bg-blue-900/5'} mix-blend-overlay pointer-events-none`} />
+                    <div className="absolute top-3 right-3 z-10 w-11 h-11">
+                      <img src={mlAvatarUri} alt="ML Agent Avatar" className="w-full h-full object-contain" />
+                    </div>
                     <div className="flex items-center justify-between gap-2 mb-1 relative z-10">
                       <div className="flex items-center gap-2">
                         <div className={`p-1.5 rounded-lg border ${mlReady ? 'bg-amber-500/20 border-amber-500/30' : 'bg-coffee-700/50 border-coffee-600'}`}>
@@ -707,25 +776,19 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                         </div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-coffee-100">ML Suggestion</span>
                       </div>
-                      {mlReady && (
-                        <div className="flex items-center gap-1.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                          <span className="text-[8px] font-bold text-amber-500/80 uppercase">Live RF</span>
-                        </div>
-                      )}
                     </div>
                     <div className="flex items-center justify-between mt-auto relative z-10">
-                      <span className={`text-3xl font-black ${mlReady ? 'text-amber-50' : 'text-coffee-400'}`}>
+                      <span className={`text-3xl font-black ${mlReady ? (theme === 'theme-latte' ? 'text-amber-900' : 'text-amber-50') : 'text-coffee-400'}`}>
                         {mlReady ? `$${mlSuggestion.toFixed(2)}` : "---"}
                       </span>
                     </div>
                     <div className="mt-2 text-[10px] text-coffee-400/80 leading-tight relative z-10">
-                      {mlReady ? "Sequential RF model price prediction." : "Waiting for ML backend..."}
+                      {mlReady ? "Sequential RandomForest model price prediction." : "Waiting for ML backend..."}
                     </div>
                   </div>
 
                   {/* Insight 2: Realized Profit Yesterday or Popup */}
-                  <div className="w-1/2 p-0 flex flex-col relative bg-coffee-800/80 rounded-xl shadow-2xl border border-coffee-700 overflow-hidden">
+                  <div className="w-[58%] p-0 flex flex-col relative bg-coffee-800/80 rounded-xl shadow-2xl border border-coffee-700 overflow-hidden">
                     <AnimatePresence mode="wait">
                       {showPopup && feedback ? (
                         <motion.div
@@ -733,9 +796,11 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          className={`absolute inset-0 p-4 flex flex-col h-full justify-between shadow-inner ${feedback.color === 'emerald' ? 'bg-emerald-900/20 border-l-4 border-emerald-500' :
-                            feedback.color === 'red' ? 'bg-red-900/20 border-l-4 border-red-500' :
-                              'bg-blue-900/20 border-l-4 border-blue-500'
+                          className={`absolute inset-0 p-4 flex flex-col h-full justify-between shadow-inner ${feedback.color === 'emerald'
+                            ? (theme === 'theme-latte' ? 'bg-emerald-100 border-l-4 border-emerald-500' : 'bg-emerald-950 border-l-4 border-emerald-500')
+                            : feedback.color === 'red'
+                              ? (theme === 'theme-latte' ? 'bg-red-100 border-l-4 border-red-500' : 'bg-red-950 border-l-4 border-red-500')
+                              : (theme === 'theme-latte' ? 'bg-blue-100 border-l-4 border-blue-500' : 'bg-blue-950 border-l-4 border-blue-500')
                             }`}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -752,9 +817,6 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                                     'text-blue-400'
                                   }`}>{feedback.title}</h2>
                                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                  <div className="text-xl font-black text-coffee-100 tracking-tight">
-                                    ${feedback.value.toFixed(2)} <span className="text-[8px] font-bold text-coffee-400 uppercase tracking-widest">PROFIT</span>
-                                  </div>
                                   <div className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 border bg-amber-100/95 border-amber-300 text-amber-900 shadow-md dark:bg-amber-500/25 dark:border-amber-400/40 dark:text-amber-100">
                                     <div className="flex items-center gap-1">
                                       <Coffee className="w-3 h-3" />
@@ -762,12 +824,19 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                                     </div>
                                     <span className="text-[7px] uppercase tracking-widest mt-1 leading-none opacity-85">Sold</span>
                                   </div>
+                                  <div className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 border bg-emerald-100/95 border-emerald-300 text-emerald-900 shadow-md dark:bg-emerald-500/25 dark:border-emerald-400/40 dark:text-emerald-100">
+                                    <div className="flex items-center gap-1">
+                                      <DollarSign className="w-3 h-3" />
+                                      <span className="text-sm font-black leading-none">{feedback.value.toFixed(2)}</span>
+                                    </div>
+                                    <span className="text-[7px] uppercase tracking-widest mt-1 leading-none opacity-85">Profit</span>
+                                  </div>
                                   <div className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 border bg-violet-100/95 border-violet-300 text-violet-900 shadow-md dark:bg-violet-500/25 dark:border-violet-400/40 dark:text-violet-100">
                                     <div className="flex items-center gap-1">
                                       <DollarSign className="w-3 h-3" />
                                       <span className="text-sm font-black leading-none">{(feedback.playerReward ?? 0).toFixed(1)}</span>
                                     </div>
-                                    <span className="text-[7px] uppercase tracking-widest mt-1 leading-none opacity-85">Reward</span>
+                                    <span className="text-[7px] uppercase tracking-widest mt-1 leading-none opacity-85">Net Reward</span>
                                   </div>
                                 </div>
                               </div>
@@ -789,7 +858,7 @@ const Dashboard = ({ theme, toggleTheme, shopName, userName, onRestart, userAvat
                           </div>
                           {feedback.showZeroMarginInsight && (
                             <div className="mt-3 bg-red-900/30 border border-red-500/40 rounded-lg p-2.5">
-                              <p className="text-[10px] text-red-100 leading-snug">
+                              <p className={`text-[10px] leading-snug ${theme === 'theme-latte' ? 'text-red-900' : 'text-red-100'}`}>
                                 Since cost of inventory for one cup of coffee is one dollar and you set your selling price as one dollar, you make 0.0 profit.
                               </p>
                             </div>

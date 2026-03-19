@@ -19,24 +19,39 @@ import CafeMap from './CafeMap';
 
 const TUTORIAL_DAYS = {
   1: { day: 'Monday', weather: 'Sunny', nearbyEvent: false, eventName: null, competitorPresent: false, competitorPrice: null },
-  2: { day: 'Tuesday', weather: 'Sunny', nearbyEvent: true, eventName: 'Food Fest', competitorPresent: false, competitorPrice: null },
+  2: { day: 'Tuesday', weather: 'Cloudy', nearbyEvent: true, eventName: 'Food Fest', competitorPresent: false, competitorPrice: null },
   3: { day: 'Wednesday', weather: 'Cloudy', nearbyEvent: false, eventName: null, competitorPresent: false, competitorPrice: null },
   4: { day: 'Thursday', weather: 'Rainy', nearbyEvent: false, eventName: null, competitorPresent: true, competitorPrice: 9.00 },
   5: { day: 'Friday', weather: 'Rainy', nearbyEvent: false, eventName: null, competitorPresent: false, competitorPrice: null, specialEvent: 'Unable to open shop due to lack of resources.' },
-  6: { day: 'Saturday', weather: 'Sunny', nearbyEvent: true, eventName: 'Music Concert', competitorPresent: true, competitorPrice: 9.50 },
+  6: { day: 'Saturday', weather: 'Rainy', nearbyEvent: true, eventName: 'Music Concert', competitorPresent: true, competitorPrice: 3.00 },
   7: { day: 'Sunday', weather: 'Rainy', nearbyEvent: false, eventName: null, competitorPresent: false, competitorPrice: null, specialEvent: 'Competitor electricity out.' }
 };
 
-const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvatar = 'Leo' }) => {
+const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo' }) => {
+  const DEFAULT_PLAYER_PRICE = 1;
   const [day, setDay] = useState(1);
   const [conditions, setConditions] = useState(TUTORIAL_DAYS[1]);
-  const [playerPrice, setPlayerPrice] = useState(5);
+  const [playerPrice, setPlayerPrice] = useState(DEFAULT_PLAYER_PRICE);
 
   // Weekly starting inventory
   const [inventory, setInventory] = useState(WEEKLY_START_INVENTORY);
 
   const [history, setHistory] = useState([
-    { day: 'Start', playerRevenue: 0, playerProfit: 0, playerSales: 0, mlRevenue: 0, mlProfit: 0, mlSales: 0 }
+    {
+      day: 'Start',
+      dayName: '',
+      playerRevenue: 0,
+      playerProfit: 0,
+      playerGrossProfit: 0,
+      playerReward: 0,
+      playerSales: 0,
+      mlRevenue: 0,
+      mlProfit: 0,
+      mlGrossProfit: 0,
+      mlReward: 0,
+      mlSales: 0,
+      competitorGrossProfit: 0
+    }
   ]);
 
   const [mlInventory, setMlInventory] = useState(WEEKLY_START_INVENTORY);
@@ -49,7 +64,9 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
   const [weeklyModalOpen, setWeeklyModalOpen] = useState(false);
   const [pendingWeeklyStats, setPendingWeeklyStats] = useState(null);
   const [pendingInventory, setPendingInventory] = useState(WEEKLY_START_INVENTORY);
-  const [warnings, setWarnings] = useState([]);
+  const mutedPanelClass = showPopup
+    ? "opacity-55 grayscale brightness-75"
+    : "opacity-100 grayscale-0 brightness-100";
 
   // Initialize ML Model
   React.useEffect(() => {
@@ -69,17 +86,20 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
         conditions.weather,
         conditions.nearbyEvent,
         mlInventory,
-        history[history.length - 1]?.mlPrice || 4.50
+        conditions.competitorPresent,
+        conditions.competitorPrice || 0
       );
       setMLSuggestion(getNormalizedPrice(price));
     };
     updateML();
-  }, [conditions, mlReady]);
+  }, [conditions, mlInventory, mlReady]);
+
+  const recallHistory = showPopup ? history.slice(0, -1) : history;
 
   // Dynamic Memory Recall for Tutorial
   const getMemoryRecall = () => {
-    if (day <= 3 || history.length <= 1) return null; // Too early
-    const pastSimilarDays = history.filter((h, index) => index > 0 && typeof h.day === 'string' && h.day.includes("Day ") && h.weather === conditions.weather && h.nearbyEvent === conditions.nearbyEvent && h.competitorPresent === conditions.competitorPresent);
+    if (day <= 3 || recallHistory.length <= 1) return null; // Too early
+    const pastSimilarDays = recallHistory.filter((h, index) => index > 0 && typeof h.day === 'string' && h.day.includes("Day ") && h.weather === conditions.weather && h.nearbyEvent === conditions.nearbyEvent && h.competitorPresent === conditions.competitorPresent);
 
     if (pastSimilarDays.length > 0) {
       let maxProfitDay = pastSimilarDays[0];
@@ -100,15 +120,9 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
   };
   const memoryData = getMemoryRecall();
 
-  const handleStartDay = () => {
-    const normalizedPlayerPrice = getNormalizedPrice(playerPrice);
-    if (normalizedPlayerPrice !== playerPrice) {
-      setPlayerPrice(normalizedPlayerPrice);
-    }
-
-    // 1. Calculate Results
-    const playerDemand = calculateDemand(
-      normalizedPlayerPrice,
+  const getTutorialDemand = (price) => {
+    const demand = calculateDemand(
+      price,
       conditions.weather,
       conditions.nearbyEvent,
       conditions.day,
@@ -116,6 +130,30 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
       conditions.competitorPrice,
       history[history.length - 1].playerPrice
     );
+
+    if (day === 6) return Math.min(demand, 235);
+    if (day !== 7) return demand;
+
+    const dayFiveLikeDemand = calculateDemand(
+      price,
+      TUTORIAL_DAYS[5].weather,
+      TUTORIAL_DAYS[5].nearbyEvent,
+      TUTORIAL_DAYS[5].day,
+      TUTORIAL_DAYS[5].competitorPresent,
+      TUTORIAL_DAYS[5].competitorPrice
+    );
+
+    return dayFiveLikeDemand + 8;
+  };
+
+  const handleStartDay = () => {
+    const normalizedPlayerPrice = getNormalizedPrice(playerPrice);
+    if (normalizedPlayerPrice !== playerPrice) {
+      setPlayerPrice(normalizedPlayerPrice);
+    }
+
+    // 1. Calculate Results
+    const playerDemand = getTutorialDemand(normalizedPlayerPrice);
 
     const playerSales = calculateSales(playerDemand, inventory);
     const playerRevenue = playerSales * normalizedPlayerPrice;
@@ -129,6 +167,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
     // Calculate Competitor Results for Graph
     let compRevenue = 0;
     let compProfit = 0;
+    let compGrossProfit = 0;
     let compSales = 0;
     if (conditions.competitorPresent && conditions.competitorPrice) {
       let cDemand = 120 - (conditions.competitorPrice * 15);
@@ -149,6 +188,8 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
       compSales = Math.min(Math.floor(cDemand), inventory);
       compRevenue = compSales * conditions.competitorPrice;
 
+      compGrossProfit = (compSales * conditions.competitorPrice) - compSales;
+
       if (day === 5) {
         // Balance competitor profit: They are heavily sponsored, but we want the player 
         // to feel that their 'Exploration' choice was still the winning move!
@@ -161,18 +202,30 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
 
     // Calculate ML Results (Simulated in Tutorial)
     const mlPrice = getNormalizedPrice(mlSuggestion);
-    const mlDemand = calculateDemand(
-      mlPrice,
-      conditions.weather,
-      conditions.nearbyEvent,
-      conditions.day,
-      conditions.competitorPresent,
-      conditions.competitorPrice,
-      history[history.length - 1].mlPrice || 4.50
-    );
+    const mlDemandBase = day === 7
+      ? calculateDemand(
+        mlPrice,
+        TUTORIAL_DAYS[5].weather,
+        TUTORIAL_DAYS[5].nearbyEvent,
+        TUTORIAL_DAYS[5].day,
+        TUTORIAL_DAYS[5].competitorPresent,
+        TUTORIAL_DAYS[5].competitorPrice
+      ) + 8
+      : calculateDemand(
+        mlPrice,
+        conditions.weather,
+        conditions.nearbyEvent,
+        conditions.day,
+        conditions.competitorPresent,
+        conditions.competitorPrice,
+        history[history.length - 1].mlPrice || 4.50
+      );
+    const mlDemand = day === 6 ? Math.min(mlDemandBase, 235) : mlDemandBase;
     const mlSales = calculateSales(mlDemand, mlInventory);
     const mlRevenue = mlSales * mlPrice;
-    const mlProfit = calculateDailyProfit(mlSales, mlPrice, conditions.day).netProfit;
+    const mlProfitBreakdown = calculateDailyProfit(mlSales, mlPrice, conditions.day);
+    const mlGrossProfit = mlProfitBreakdown.gross - mlProfitBreakdown.cogs;
+    const mlProfit = mlProfitBreakdown.netProfit;
 
     // 2. Determine Feedback (Observation only)
     let message = "";
@@ -181,11 +234,6 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
       if (day === 4) {
         // Just setting the tip if it's day 4, keep the overall flow intact.
       }
-      setWarnings(prev => [...prev, {
-        id: Date.now(),
-        day: day,
-        message: `Since your price ($${normalizedPlayerPrice.toFixed(2)}) is equal to the Cost of cup ($1.00/cup), you made zero profit despite your sales!`
-      }]);
       message += `Stable day in the market, but zero profit.`;
     } else if (playerSales === 0) {
       message += `Your price might be too high!`;
@@ -197,12 +245,13 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
 
     let fb = {
       type: 'neutral',
-      title: 'Day Complete',
+      title: 'Results for Today',
       message: message,
       icon: <Info className="text-blue-400 w-12 h-12" />,
       color: 'blue',
       value: playerProfit,
-      playerSales: playerSales
+      playerSales: playerSales,
+      showZeroMarginInsight: normalizedPlayerPrice === 1
     };
 
     // Smart Educational Tips based on Day and User Action
@@ -223,7 +272,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
           fb.educationalTip = { title: "Concept 4: Reward", text: "You undercut or matched the $9 competitor. Right now, you can view 'Profit' as your Reward. But for a true Reinforcement Learning agent, 'Reward' is much deeper - it includes many factors like strictly managing daily inventory targets to avoid storage or sell-out penalties etc." };
         }
         break;
-      case 5:
+      case 5: {
         const prevPriceDay3 = history[3]?.playerPrice;
         if (normalizedPlayerPrice === prevPriceDay3) {
           fb.educationalTip = { title: "Concept 5: Exploitation", text: "You chose the same price as Wednesday! Relying on past knowledge to make a decision is called 'Exploitation'. However, exploiting too early in an Reinforcement Learning agent's life might not always yield the best results because the agent hasn't fully explored other options that could be better." };
@@ -231,10 +280,11 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
           fb.educationalTip = { title: "Concept 5: Exploration", text: "You chose a different price than Wednesday, even though conditions were the same! Trying new actions to see if they yield better results is called 'Exploration'." };
         }
         break;
+      }
       case 6:
-        fb.educationalTip = { title: "Concept 6: Penalty", text: "Though you undercut the competitor, high demand pushed your inventory down quickly. In this simulation, selling out early means missed sales until Monday's weekly inventory reset." };
+        fb.educationalTip = { title: "Concept 6: Penalty", text: "For a true Reinforcement Learning agent, 'Penalty' includes factors like missing daily sales targets. In this orientation, the RL agent would receive a penalty if demand stays below the required threshold, showing how low demand can reduce the model's final net reward." };
         break;
-      case 7:
+      case 7: {
         const price3 = history[3]?.playerPrice;
         const price5 = history[5]?.playerPrice;
         if (normalizedPlayerPrice === price3 || normalizedPlayerPrice === price5) {
@@ -243,22 +293,27 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
           fb.educationalTip = { title: "Exploration vs Exploitation", text: "You tried a brand new price! Exploring helps discover optimal strategies, but eventually, an agent must Exploit its knowledge to maximize profits. A good agent must balance both." };
         }
         break;
+      }
       default:
         break;
     }
 
     const playerRewardData = calculateReward(playerProfit);
     const playerDailyReward = playerRewardData.total;
+    fb.value = playerRewardComponent;
     fb.playerReward = playerDailyReward;
     setFeedback(fb);
 
     // 3. Update History
     setHistory([...history, {
       day: `Day ${day}`,
+      dayName: conditions.day,
       playerRevenue: history[history.length - 1].playerRevenue + playerRevenue,
       playerProfit: (history[history.length - 1].playerProfit || 0) + playerProfit,
+      playerGrossProfit: (history[history.length - 1].playerGrossProfit || 0) + playerRewardComponent,
       playerDailyRevenue: playerRevenue,
       playerDailyProfit: playerProfit,
+      playerDailyGrossProfit: playerRewardComponent,
       playerSales: playerSales,
       playerPenalty,
       playerLowSalesPenalty: playerProfitBreakdown.penalty,
@@ -268,8 +323,10 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
       playerDailyPenaltyPoints: parseFloat(playerPenaltyComponent.toFixed(2)),
       competitorRevenue: (history[history.length - 1].competitorRevenue || 0) + compRevenue,
       competitorProfit: (history[history.length - 1].competitorProfit || 0) + compProfit,
+      competitorGrossProfit: (history[history.length - 1].competitorGrossProfit || 0) + compGrossProfit,
       competitorDailyRevenue: compRevenue,
       competitorDailyProfit: compProfit,
+      competitorDailyGrossProfit: compGrossProfit,
       competitorSales: compSales,
       playerTotalSales: (history[history.length - 1].playerTotalSales || 0) + playerSales,
       mlTotalSales: (history[history.length - 1].mlTotalSales || 0) + mlSales,
@@ -278,7 +335,9 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
       mlPrice: mlPrice,
       mlRevenue: (history[history.length - 1].mlRevenue || 0) + mlRevenue,
       mlProfit: (history[history.length - 1].mlProfit || 0) + mlProfit,
+      mlGrossProfit: (history[history.length - 1].mlGrossProfit || 0) + mlGrossProfit,
       mlDailyProfit: mlProfit,
+      mlDailyGrossProfit: mlGrossProfit,
       mlSales: mlSales,
       weather: conditions.weather,
       nearbyEvent: conditions.nearbyEvent,
@@ -325,7 +384,6 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
       return; // Ensure we don't clear showPopup when going to the modal; it stays open behind.
     } else {
       setShowPopup(false);
-      setWarnings([]); // Clear warnings when moving to the next day
 
       proceedToNextDay(pendingInventory);
     }
@@ -342,6 +400,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
 
   const proceedToNextDay = (startInv) => {
     setDay(day + 1);
+    setPlayerPrice(DEFAULT_PLAYER_PRICE);
     setConditions(TUTORIAL_DAYS[day + 1]);
 
     if ((day + 1) % 7 === 1) {
@@ -413,7 +472,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex flex-col gap-4 flex-grow min-h-0">
             {/* Tier 1: Conditions (Full Width) */}
-            <div className="w-full shrink-0">
+            <div className={`w-full shrink-0 transition-all duration-300 ${mutedPanelClass}`}>
               <MarketView
                 day={conditions.day}
                 weather={conditions.weather}
@@ -436,7 +495,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
               </div>
 
               {/* Animation / Simulation Box */}
-              <div className="md:w-1/2 bg-coffee-800/50 rounded-2xl h-full flex flex-col overflow-hidden relative group">
+              <div className={`md:w-1/2 bg-coffee-800/50 rounded-2xl h-full flex flex-col overflow-hidden relative group transition-all duration-300 ${mutedPanelClass}`}>
                 {/* Background image container for retro 2D map */}
                 <div className="absolute inset-0 w-full h-full xl:bg-coffee-900/80 overflow-hidden flex items-center justify-center">
                   <div className="absolute inset-0 w-full h-full">
@@ -455,18 +514,18 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
                 <div className={`${theme === 'theme-latte'
                   ? 'bg-gradient-to-br from-amber-100/85 via-amber-50/80 to-orange-100/75 border-amber-500/70 ring-amber-500/35 shadow-amber-500/20'
                   : 'bg-gradient-to-br from-amber-700/35 via-coffee-700/85 to-coffee-800/85 border-amber-400/55 ring-amber-300/35 shadow-amber-900/20'
-                  } p-4 rounded-xl border ring-1 shadow-xl relative overflow-hidden flex flex-col h-full gap-3`}>
+                  } p-4 rounded-xl border ring-1 shadow-xl relative overflow-hidden flex flex-col h-full gap-3 transition-all duration-300 ${mutedPanelClass}`}>
                   {/* Decor */}
                   <div className={`absolute -right-4 -top-4 w-20 h-20 rounded-full blur-2xl pointer-events-none ${theme === 'theme-latte' ? 'bg-amber-300/45' : 'bg-amber-400/30'}`} />
 
                   {/* TOP: Labels, Slider, Input Side-by-Side */}
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-amber-50 font-extrabold uppercase tracking-wider shrink-0 bg-amber-200/10 border border-amber-300/30 px-2 py-0.5 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.35)]">Set Price for the day:</span>
+                    <span className={`text-sm font-extrabold uppercase tracking-wider shrink-0 bg-amber-200/10 border border-amber-300/30 px-2 py-0.5 rounded-md shadow-[0_1px_2px_rgba(0,0,0,0.35)] ${theme === 'theme-latte' ? 'text-amber-900' : 'text-amber-50'}`}>Set Price for the day:</span>
                     <input
                       type="range"
                       min="1"
                       max="10"
-                      step="0.5"
+                      step="1"
                       value={playerPrice}
                       onChange={(e) => setPlayerPrice(parseFloat(e.target.value))}
                       className="flex-grow h-2 bg-coffee-950/80 rounded-lg appearance-none cursor-pointer accent-amber-400 shadow-inner"
@@ -477,18 +536,18 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
                         type="number"
                         min="1"
                         max="10"
-                        step="0.50"
+                        step="1"
                         value={playerPrice}
                         onChange={(e) => setPlayerPrice(e.target.value)}
                         onBlur={(e) => {
                           let val = parseFloat(e.target.value);
                           if (isNaN(val)) val = 1;
-                          val = Math.round(val / 0.5) * 0.5;
+                          val = Math.round(val);
                           if (val < 1) val = 1;
                           if (val > 10) val = 10;
                           setPlayerPrice(val);
                         }}
-                        className="w-16 bg-coffee-900/80 border border-amber-600/40 text-amber-200 text-base font-black rounded-lg px-2 py-0.5 focus:outline-none focus:border-amber-400 transition-colors shadow-inner"
+                        className={`w-16 bg-coffee-900/80 border border-amber-600/40 text-base font-black rounded-lg px-2 py-0.5 focus:outline-none focus:border-amber-400 transition-colors shadow-inner ${theme === 'theme-latte' ? 'text-amber-900' : 'text-amber-200'}`}
                       />
                     </div>
                   </div>
@@ -531,9 +590,11 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
-                      className={`p-4 rounded-xl border flex flex-col h-full shadow-2xl relative overflow-hidden ${feedback.color === 'emerald' ? 'border-emerald-500/50 bg-emerald-900/20' :
-                        feedback.color === 'red' ? 'border-red-500/50 bg-red-900/20' :
-                          'border-blue-500/50 bg-blue-900/20'
+                      className={`p-4 rounded-xl border flex flex-col h-full shadow-2xl relative overflow-hidden ${feedback.color === 'emerald'
+                        ? (theme === 'theme-latte' ? 'border-emerald-300 bg-emerald-100' : 'border-emerald-500/50 bg-emerald-950')
+                        : feedback.color === 'red'
+                          ? (theme === 'theme-latte' ? 'border-red-300 bg-red-100' : 'border-red-500/50 bg-red-950')
+                          : (theme === 'theme-latte' ? 'border-blue-300 bg-blue-100' : 'border-blue-500/50 bg-blue-950')
                         }`}>
                       <div className="flex items-center justify-between gap-4 mb-4 relative">
                         <div className="flex items-center gap-3">
@@ -550,9 +611,6 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
                               {feedback.title}
                             </h2>
                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              <div className="text-xl font-black text-coffee-100 tracking-tight">
-                                ${feedback.value.toFixed(2)} <span className="text-[10px] font-bold text-coffee-400 uppercase tracking-widest">Profit</span>
-                              </div>
                               <div className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 border bg-amber-100/95 border-amber-300 text-amber-900 shadow-md dark:bg-amber-500/25 dark:border-amber-400/40 dark:text-amber-100">
                                 <div className="flex items-center gap-1">
                                   <Coffee className="w-3 h-3" />
@@ -560,13 +618,30 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
                                 </div>
                                 <span className="text-[7px] uppercase tracking-widest mt-1 leading-none opacity-85">Sold</span>
                               </div>
+                              <div className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 border bg-emerald-100/95 border-emerald-300 text-emerald-900 shadow-md dark:bg-emerald-500/25 dark:border-emerald-400/40 dark:text-emerald-100">
+                                <div className="flex items-center gap-1">
+                                  <DollarSign className="w-3 h-3" />
+                                  <span className="text-sm font-black leading-none">{feedback.value.toFixed(2)}</span>
+                                </div>
+                                <span className="text-[7px] uppercase tracking-widest mt-1 leading-none opacity-85">Profit</span>
+                              </div>
                               <div className="flex flex-col items-center justify-center rounded-lg px-2.5 py-1.5 border bg-violet-100/95 border-violet-300 text-violet-900 shadow-md dark:bg-violet-500/25 dark:border-violet-400/40 dark:text-violet-100">
                                 <div className="flex items-center gap-1">
                                   <DollarSign className="w-3 h-3" />
                                   <span className="text-sm font-black leading-none">{(feedback.playerReward ?? 0).toFixed(1)}</span>
                                 </div>
-                                <span className="text-[7px] uppercase tracking-widest mt-1 leading-none opacity-85">Reward</span>
+                                <span className="text-[7px] uppercase tracking-widest mt-1 leading-none opacity-85">Net Reward</span>
                               </div>
+                              {feedback.showZeroMarginInsight && (
+                                <div className={`max-w-[240px] rounded-lg border border-red-500/40 px-2 py-1.5 shadow-md ${theme === 'theme-latte' ? 'bg-red-100 text-red-900' : 'bg-red-900/30 text-red-100'}`}>
+                                  <div className="flex items-start gap-1.5">
+                                    <AlertTriangle className="w-3 h-3 text-red-300 shrink-0 mt-0.5" />
+                                    <p className="text-[8px] leading-snug">
+                                      Since the cost per cup is $1.00 and you priced coffee at $1.00, this day ends with zero profit.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -584,7 +659,6 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
                           <ArrowRight className="w-4 h-4" />
                         </motion.button>
                       </div>
-
 
                       {feedback.educationalTip && (
                         <div className="w-full bg-coffee-950/40 border-l-4 border-amber-500 rounded-lg p-3">
@@ -673,38 +747,6 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userName, userAvat
           />
         )
       }
-
-      {/* Toast Warnings */}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
-        <AnimatePresence>
-          {warnings.map(warning => (
-            <motion.div
-              key={warning.id}
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-red-950 border border-red-500 rounded-lg p-3 shadow-2xl w-72 pointer-events-auto relative flex items-start gap-3"
-            >
-              <button
-                onClick={() => setWarnings(w => w.filter(x => x.id !== warning.id))}
-                className="absolute top-2 right-2 text-red-500 hover:text-red-300 transition-colors"
-                aria-label="Close warning"
-              >
-                <span className="text-base leading-none block">&times;</span>
-              </button>
-              <div className="p-1.5 bg-red-900/50 rounded-md shrink-0 mt-0.5">
-                <AlertTriangle className="w-4 h-4 text-red-400" />
-              </div>
-              <div className="pr-2">
-                <h4 className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-1">Zero Profit (Day {warning.day})</h4>
-                <p className="text-[10px] text-red-200 leading-snug">
-                  {warning.message}
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
     </div >
   );
 };

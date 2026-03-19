@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 import joblib
 import os
 from sklearn.ensemble import RandomForestRegressor
@@ -7,9 +6,11 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 def train_model():
-    data_path = "ml_assistant_data.csv"
-    model_dir = "models"
+    data_path = os.path.join(SCRIPT_DIR, "ml_assistant_data.csv")
+    model_dir = os.path.join(SCRIPT_DIR, "models")
     
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
@@ -17,19 +18,19 @@ def train_model():
     print(f"Loading data from {data_path}...")
     df = pd.read_csv(data_path)
 
-    # Features: DayOfWeek, Weather, Event, StartingInventory, YesterdayPrice
+    # Features: DayOfWeek, Weather, Event, StartingInventory, CompetitorPresence, CompetitorPrice
     # Target: UserPrice
 
     # 1. Define Categories for encoding (consistent with coffee_env.py mappings if possible)
     # DayOfWeek: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday
     # Weather: Sunny, Cloudy, Rainy
-    # Event: yes, no
+    # Event is generated as 0 in the simplified dataset, but we still allow 1 at inference time.
 
     days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     weathers_order = ['Sunny', 'Cloudy', 'Rainy']
-    events_order = ['no', 'yes']
+    events_order = [0, 1]
 
-    X = df[['DayOfWeek', 'Weather', 'Event', 'StartingInventory', 'YesterdayPrice']]
+    X = df[['DayOfWeek', 'Weather', 'Event', 'StartingInventory', 'CompetitorPresence', 'CompetitorPrice']]
     y = df['UserPrice']
 
     print("Encoding categorical features...")

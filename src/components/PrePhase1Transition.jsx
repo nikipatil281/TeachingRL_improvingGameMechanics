@@ -3,7 +3,7 @@ import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, Target, AlertCircle, ShoppingCart, Info, Clock, Thermometer, Calendar } from 'lucide-react';
 import { WEEKLY_START_INVENTORY, WASTAGE_COST_PER_CUP } from '../logic/MarketEngine';
 
-const PrePhase1Transition = ({ onComplete, theme }) => {
+const PrePhase1Transition = ({ onComplete, onBackToStory, theme }) => {
     const [isUnlocked, setIsUnlocked] = useState(false);
     const controls = useAnimation();
     const [containerWidth, setContainerWidth] = useState(0);
@@ -25,10 +25,8 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
     const HANDLE_WIDTH = 110; // px
     const MAX_SLIDE = SLIDER_WIDTH - HANDLE_WIDTH - 8;
 
-    const handleDragUpdate = (event, info) => {
-        // Optional: map the opacity of the text to the drag position
-        const slidePercent = info.point.x / MAX_SLIDE;
-        // We could fade out the text, but framer motion handles it beautifully if we just use a state or ignore it.
+    const handleDragUpdate = () => {
+        // Reserved for future drag-driven UI tweaks.
     };
 
     const handleDragEnd = async (event, info) => {
@@ -66,13 +64,6 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
             text: `The shelf-life of your inventory is exactly one week. Any unsold inventory incurs a $${WASTAGE_COST_PER_CUP.toFixed(2)} wastage penalty per cup on Sunday night.`
         },
         {
-            color: "text-blue-400",
-            bg: "bg-blue-400/10",
-            border: "border-blue-400/20",
-            title: "No Mid-Week Restock",
-            text: "If you sell out mid-week, you cannot restock until Monday's weekly reset."
-        },
-        {
             color: "text-purple-400",
             bg: "bg-purple-400/10",
             border: "border-purple-400/20",
@@ -80,12 +71,27 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
             text: "You spend $1 to make every cup of coffee. Setting your price too close to this leads to minimising your profit."
         },
         {
+            color: "text-sky-400",
+            bg: "bg-sky-400/10",
+            border: "border-sky-400/20",
+            title: "External Variables",
+            text: "Consider the day of the week, weather, competitor pricing and local events while setting the daily price of coffee."
+        },
+        {
             color: "text-orange-400",
             bg: "bg-orange-400/10",
             border: "border-orange-400/20",
-            title: "External Variables",
-            text: "Consider the day of the week, weather, competitor pricing and local events while setting the daily price of coffee."
+            title: "Penalties",
+            text: "Low sales and high wastage lead to penalties. Setting the price too high may lead to low sales, while setting it too low may lead to high wastage."
+        },
+        {
+            color: "text-orange-400",
+            bg: "bg-orange-400/10",
+            border: "border-orange-400/20",
+            title: "Rewards",
+            text: "Major component of your rewards are profits which are earned based on the difference between the price you set and the cost of production. But rewards are much more nuanced and include penalties for suboptimal decisions like negative competitve advantage."
         }
+        
     ];
 
     return (
@@ -103,6 +109,17 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
                 className="z-10 w-full max-w-[90rem] p-4 md:p-8"
             >
                 <div className="text-center mb-8">
+                    {onBackToStory && (
+                        <div className="flex justify-start mb-6">
+                            <button
+                                onClick={onBackToStory}
+                                className="px-4 py-2 rounded-xl border border-coffee-600 text-coffee-200 bg-coffee-800/70 hover:bg-coffee-700/70 font-bold text-sm flex items-center gap-2 transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                                Go Back to Story
+                            </button>
+                        </div>
+                    )}
                     <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -119,7 +136,7 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
                     </p>
                 </div>
 
-                <div className="mb-10 max-w-5xl mx-auto">
+                <div className="mb-10 max-w-6xl mx-auto">
                     <AnimatePresence mode="wait">
                         {boardStep === 0 ? (
                             <motion.div
@@ -134,20 +151,20 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
                                     <Info className="w-5 h-5 text-emerald-400" />
                                     Key Reinforcement Learning Terminologies
                                 </h2>
-                                <p className="text-sm text-coffee-400 font-medium leading-relaxed mb-6">
+                                <p className="text-base md:text-lg text-coffee-400 font-medium leading-relaxed mb-6">
                                     Pay close attention as the game engine will gradually introduce you to these concepts:
                                 </p>
-                                <ul className="space-y-4 text-sm text-coffee-300 font-medium tracking-wide">
-                                    <li className="flex items-start gap-3"><span className="text-red-400 font-bold shrink-0 w-44">Environment</span> The world you interact with.</li>
-                                    <li className="flex items-start gap-3"><span className="text-amber-400 font-bold shrink-0 w-44">State</span> The current conditions (the day of the week, weather, competitor pricing, local events and inventory level).</li>
-                                    <li className="flex items-start gap-3"><span className="text-emerald-400 font-bold shrink-0 w-44">Agent</span> The decision maker (YOU).</li>
-                                    <li className="flex items-start gap-3"><span className="text-blue-400 font-bold shrink-0 w-44">Action</span> The decision made (Setting daily price of coffee).</li>
-                                    <li className="flex items-start gap-3"><span className="text-purple-400 font-bold shrink-0 w-44">Reward</span> The positive feedback received based on Profit, Inventory Management, Competitor Pricing etc.</li>
-                                    <li className="flex items-start gap-3"><span className="text-rose-400 font-bold shrink-0 w-44">Penalty</span> The negative feedback received based on low sales and week-end wastage.</li>
-                                    <li className="flex items-start gap-3"><span className="text-indigo-400 font-bold shrink-0 w-44">Policy</span> Your pricing strategy that optimises your rewards.</li>
-                                    <li className="flex items-start gap-3"><span className="text-blue-400 font-bold shrink-0 w-44">Sequential Learning</span> Learning from actions over time.</li>
-                                    <li className="flex items-start gap-3"><span className="text-yellow-400 font-bold shrink-0 w-44">Exploration</span> Trying new prices to learn the optimal price for a given state.</li>
-                                    <li className="flex items-start gap-3"><span className="text-orange-400 font-bold shrink-0 w-44">Exploitation</span> Using the known best price for a given state.</li>
+                                <ul className="space-y-4 text-base md:text-lg text-coffee-300 font-medium tracking-wide">
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-red-400 font-bold shrink-0 w-full md:w-52">Environment</span> The world you interact with.</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-amber-400 font-bold shrink-0 w-full md:w-52">State</span> The current conditions (the day of the week, weather, competitor pricing, local events and inventory level).</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-emerald-400 font-bold shrink-0 w-full md:w-52">Agent</span> The decision maker (YOU).</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-blue-400 font-bold shrink-0 w-full md:w-52">Action</span> The decision made (Setting daily price of coffee).</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-rose-400 font-bold shrink-0 w-full md:w-52">Penalty</span> The negative feedback received based on low sales and week-end wastage.</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-purple-400 font-bold shrink-0 w-full md:w-52">Reward</span> The positive feedback received based on Profit, Inventory Management, Competitor Pricing etc.</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-indigo-400 font-bold shrink-0 w-full md:w-52">Policy</span> Your pricing strategy that optimises your rewards.</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-blue-400 font-bold shrink-0 w-full md:w-52">Sequential Learning</span> Learning from actions over time.</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-yellow-400 font-bold shrink-0 w-full md:w-52">Exploration</span> Trying new prices to learn the optimal price for a given state.</li>
+                                    <li className="flex flex-wrap items-start gap-3 md:flex-nowrap"><span className="text-orange-400 font-bold shrink-0 w-full md:w-52">Exploitation</span> Using the known best price for a given state.</li>
                                 </ul>
                             </motion.div>
                         ) : (
@@ -170,7 +187,9 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
                                             initial={{ opacity: 0, x: -20 }}
                                             animate={{ opacity: 1, x: 0 }}
                                             transition={{ delay: 0.1 + (idx * 0.05) }}
-                                            className="flex items-start gap-4 transition-all duration-300"
+                                            className={`flex items-start gap-4 transition-all duration-300 ${
+                                                rule.title === 'Rewards' ? 'md:col-span-2' : ''
+                                            }`}
                                         >
                                             <div className={`mt-1 h-10 w-10 shrink-0 rounded-xl flex items-center justify-center font-black text-lg ${rule.bg} ${rule.color} border ${rule.border} shadow-lg`}>
                                                 {(idx + 1).toString().padStart(2, '0')}
@@ -179,7 +198,7 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
                                                 <h3 className="font-black text-coffee-100 mb-1.5 flex items-center gap-2">
                                                     {rule.title}
                                                 </h3>
-                                                <p className="text-sm text-coffee-400 font-medium leading-relaxed">{rule.text}</p>
+                                                <p className="text-base md:text-lg text-coffee-400 font-medium leading-relaxed">{rule.text}</p>
                                             </div>
                                         </motion.div>
                                     ))}
@@ -188,39 +207,30 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
                         )}
                     </AnimatePresence>
 
-                    <div className="flex items-center justify-between mt-5">
-                        <button
-                            onClick={() => setBoardStep((s) => Math.max(0, s - 1))}
-                            disabled={boardStep === 0}
-                            className={`px-4 py-2 rounded-xl border font-bold text-sm flex items-center gap-2 transition-colors ${boardStep === 0
-                                ? 'opacity-40 cursor-not-allowed border-coffee-700 text-coffee-500 bg-coffee-900/40'
-                                : 'border-coffee-600 text-coffee-200 bg-coffee-800/70 hover:bg-coffee-700/70'
-                                }`}
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                            Previous
-                        </button>
+                    <div className={`flex items-center mt-5 ${boardStep === 0 ? 'justify-end' : 'justify-start'}`}>
+                        {boardStep === 1 && (
+                            <button
+                                onClick={() => setBoardStep(0)}
+                                className="px-4 py-2 rounded-xl border font-bold text-sm flex items-center gap-2 transition-colors border-coffee-600 text-coffee-200 bg-coffee-800/70 hover:bg-coffee-700/70"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                                Previous
+                            </button>
+                        )}
 
-                        <div className="flex items-center gap-2">
-                            {[0, 1].map((idx) => (
-                                <div
-                                    key={idx}
-                                    className={`h-2 rounded-full transition-all duration-300 ${boardStep === idx ? 'w-8 bg-amber-500' : 'w-2.5 bg-coffee-600'}`}
-                                />
-                            ))}
-                        </div>
-
-                        <button
-                            onClick={() => setBoardStep((s) => Math.min(1, s + 1))}
-                            disabled={boardStep === 1}
-                            className={`px-4 py-2 rounded-xl border font-bold text-sm flex items-center gap-2 transition-colors ${boardStep === 1
-                                ? 'opacity-40 cursor-not-allowed border-coffee-700 text-coffee-500 bg-coffee-900/40'
-                                : 'border-amber-500/40 text-amber-200 bg-amber-600/20 hover:bg-amber-500/30'
+                        {boardStep === 0 && (
+                            <button
+                                onClick={() => setBoardStep(1)}
+                                className={`px-4 py-2 rounded-xl border font-bold text-sm flex items-center gap-2 transition-colors ${
+                                    theme === 'theme-black-coffee'
+                                        ? 'border-amber-500/40 text-amber-200 bg-amber-600/20 hover:bg-amber-500/30'
+                                        : 'border-amber-700/60 text-coffee-950 bg-amber-400 hover:bg-amber-300 shadow-md shadow-amber-900/20'
                                 }`}
-                        >
-                            Next
-                            <ChevronRight className="w-4 h-4" />
-                        </button>
+                            >
+                                Next
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -233,7 +243,7 @@ const PrePhase1Transition = ({ onComplete, theme }) => {
                     >
                         <div className="absolute inset-0 flex items-center justify-center pl-32 pointer-events-none z-0">
                             <span className={`font-black uppercase tracking-widest text-xs md:text-sm ${isUnlocked ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300 ${theme === 'theme-black-coffee' ? 'text-coffee-400' : 'text-coffee-300'}`}>
-                                Slide to start Phase 1 (Orientation)
+                                Slide to Take a tour of the dashboard
                             </span>
                         </div>
 

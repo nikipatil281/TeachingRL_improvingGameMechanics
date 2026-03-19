@@ -20,6 +20,10 @@ export const WEEKDAY_SALES_TARGET = 200;
 export const WEEKEND_SALES_TARGET = 250;
 export const LOW_SALES_PENALTY = 100;
 
+const STANDARD_COMPETITOR_GAIN_MAX_PRICE = 7;
+const UMBRELLA_PRICING_TRIGGER_PRICE = 8;
+const UMBRELLA_PRICING_BONUS_PER_DOLLAR = 10;
+
 // Pre-calculated schedule for the 28-day simulation
 let mainGameSchedule = null;
 
@@ -93,13 +97,13 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const normalizePrice = (price) => {
   const numeric = Number(price);
   if (!Number.isFinite(numeric)) return PRICE_MIN;
-  return clamp(Math.round(numeric), PRICE_MIN, PRICE_MAX);
+  return clamp(Math.round(numeric * 2) / 2, PRICE_MIN, PRICE_MAX);
 };
 
 const normalizeCompetitorPrice = (price) => {
   const numeric = Number(price);
   if (!Number.isFinite(numeric)) return 0;
-  return clamp(Math.round(numeric), 3, 8);
+  return clamp(Math.round(numeric), 3, 10);
 };
 
 const randomIntInclusive = (min, max) => {
@@ -153,14 +157,24 @@ const applyCompetitorAdjustment = (baseDemand, setKey, playerPrice, competitorPr
   if (factor === 0) return baseDemand;
 
   const diff = Math.abs(t - p);
-  const adjusted = t >= p
+
+  // Umbrella-pricing exception:
+  // once the competitor moves above $8, pricing slightly above them can still
+  // attract some demand instead of losing it.
+  if (t > UMBRELLA_PRICING_TRIGGER_PRICE && p > t) {
+    return Math.max(0, Math.floor(baseDemand + (diff * UMBRELLA_PRICING_BONUS_PER_DOLLAR)));
+  }
+
+  const adjusted = t >= p && t <= STANDARD_COMPETITOR_GAIN_MAX_PRICE
     ? baseDemand + (diff * factor)
-    : baseDemand - (diff * factor);
+    : t >= p
+      ? baseDemand
+      : baseDemand - (diff * factor);
 
   return Math.max(0, Math.floor(adjusted));
 };
 
-const generateCompetitorPrice = () => randomIntInclusive(3, 8);
+const generateCompetitorPrice = () => randomIntInclusive(3, 10);
 
 const shuffleArray = (array) => {
   const next = [...array];
@@ -258,9 +272,7 @@ const scheduleMeetsWeeklyConstraints = (schedule) => {
 };
 
 const buildConstrainedMainSchedule = () => {
-  let attempts = 0;
-  while (attempts < 500) {
-    attempts += 1;
+  while (true) {
 
     const statesByDay = {};
     for (const dayName of DAYS) {
@@ -286,17 +298,8 @@ const buildConstrainedMainSchedule = () => {
       });
     }
 
-    if (scheduleMeetsWeeklyConstraints(candidate)) {
-      return candidate;
-    }
+    if (scheduleMeetsWeeklyConstraints(candidate)) return candidate;
   }
-
-  // Defensive fallback: still return a valid 28-day schedule structure.
-  return Array.from({ length: 28 }, (_, idx) => {
-    const dayName = DAYS[idx % 7];
-    const state = createRandomStateForDay(dayName);
-    return { ...state, dayNumber: idx + 1, stateId: buildStateId(state) };
-  });
 };
 
 export const initMainGameSchedule = (forceReset = false) => {

@@ -1,6 +1,22 @@
 import React, { useMemo } from 'react';
 import { createAvatar } from '@dicebear/core';
-import { adventurer } from '@dicebear/collection'; const PxWrapper = ({ left, right, bottom, top, scale = 1, zIndex = 10, className = '', children, delay = 0 }) => (
+import { adventurer } from '@dicebear/collection';
+import autoWalkerAssetManifest from '../generated/walker-assets.generated.js';
+
+const seedFromString = (value) => (
+    Array.from(value).reduce((seed, char, index) => seed + (char.charCodeAt(0) * (index + 1)), 0)
+);
+
+const createSeededRandom = (seed) => {
+    let state = seed >>> 0;
+
+    return () => {
+        state = (1664525 * state + 1013904223) >>> 0;
+        return state / 4294967296;
+    };
+};
+
+const PxWrapper = ({ left, right, bottom, top, scale = 1, zIndex = 10, className = '', children, delay = 0 }) => (
     <div
         className={`absolute flex items-end justify-center ${className}`}
         style={{
@@ -14,6 +30,90 @@ import { adventurer } from '@dicebear/collection'; const PxWrapper = ({ left, ri
         {children}
     </div>
 );
+
+const getLastNumber = (value) => {
+    const matches = value.match(/\d+/g);
+    return matches ? Number(matches[matches.length - 1]) : 0;
+};
+
+const compareAssetPaths = (left, right) => {
+    const leftNumber = getLastNumber(left);
+    const rightNumber = getLastNumber(right);
+
+    if (leftNumber !== rightNumber) {
+        return leftNumber - rightNumber;
+    }
+
+    return left.localeCompare(right);
+};
+
+const WALKER_KIND_STYLES = {
+    person: {
+        frameBoxClass: 'w-20 h-32',
+        walkDuration: 0.78,
+        shadowFilter: 'drop-shadow(0px 3px 2px rgba(0,0,0,0.4))',
+        baseScale: 0.42,
+        durationMin: 14,
+        durationRange: 2
+    },
+    cat: {
+        frameBoxClass: 'w-12 h-12',
+        walkDuration: 0.6,
+        shadowFilter: 'drop-shadow(0px 2px 1.5px rgba(0,0,0,0.4))',
+        baseScale: 0.56,
+        durationMin: 14,
+        durationRange: 2
+    },
+    dog: {
+        frameBoxClass: 'w-14 h-14',
+        walkDuration: 0.6,
+        shadowFilter: 'drop-shadow(0px 2px 1.5px rgba(0,0,0,0.4))',
+        baseScale: 0.62,
+        durationMin: 14,
+        durationRange: 2
+    }
+};
+
+const buildWalkerVariants = () => {
+    const lanePatternsByKind = {
+        person: ['middle', 'back'],
+        cat: ['frontMid', 'middle'],
+        dog: ['front', 'frontMid']
+    };
+    const directionPatternsByKind = {
+        person: [1, -1, 1],
+        cat: [1, -1],
+        dog: [1, -1]
+    };
+    const kindCounts = {
+        person: 0,
+        cat: 0,
+        dog: 0
+    };
+
+    return autoWalkerAssetManifest
+        .map((walker) => {
+            const style = WALKER_KIND_STYLES[walker.kind] ?? WALKER_KIND_STYLES.person;
+            const kind = walker.kind in kindCounts ? walker.kind : 'person';
+            const kindIndex = kindCounts[kind];
+            kindCounts[kind] += 1;
+            const lanePattern = lanePatternsByKind[kind] ?? lanePatternsByKind.person;
+            const directionPattern = directionPatternsByKind[kind] ?? directionPatternsByKind.person;
+
+            return {
+                ...walker,
+                frames: [...walker.frames].sort(compareAssetPaths),
+                laneId: lanePattern[kindIndex % lanePattern.length],
+                direction: directionPattern[kindIndex % directionPattern.length],
+                baseScale: style.baseScale,
+                durationMin: style.durationMin,
+                durationRange: style.durationRange
+            };
+        })
+        .filter(({ frames }) => frames.length > 0);
+};
+
+const AUTO_WALKER_VARIANTS = buildWalkerVariants();
 
 // --- Background Layers removed ---
 
@@ -45,14 +145,17 @@ const Bird = (props) => (
 
 // --- Weather Overlay Elements ---
 const Rain = () => {
-    // Generate deterministic rain lines
-    const rainLines = Array.from({ length: 150 }).map((_, i) => ({
-        id: i,
-        left: `${Math.random() * 120 - 10}%`,
-        animationDelay: `-${Math.random() * 2}s`,
-        animationDuration: `${0.4 + Math.random() * 0.3}s`,
-        opacity: 0.2 + Math.random() * 0.4
-    }));
+    const rainLines = useMemo(() => {
+        const random = createSeededRandom(seedFromString('cafe-map-rain'));
+
+        return Array.from({ length: 150 }).map((_, i) => ({
+            id: i,
+            left: `${random() * 120 - 10}%`,
+            animationDelay: `-${random() * 2}s`,
+            animationDuration: `${0.4 + random() * 0.3}s`,
+            opacity: 0.2 + random() * 0.4
+        }));
+    }, []);
 
     return (
         <div className="absolute inset-0 pointer-events-none overflow-hidden z-[45]">
@@ -98,7 +201,7 @@ const PixelShadow = ({ width = "w-[80%]", className = "" }) => (
 
 // --- Main Buildings ---
 
-const PlayerCafe = ({ shopName = "Your Shop", ...props }) => (
+const PlayerCafe = (props) => (
     <PxWrapper {...props} zIndex={40}>
         <div className="relative w-80 h-[300px] flex flex-col items-center justify-end group overflow-visible font-mono text-xs">
             {/* Custom shadow image (adjust bottom, left, width and opacity as needed) */}
@@ -109,7 +212,7 @@ const PlayerCafe = ({ shopName = "Your Shop", ...props }) => (
             />
 
             <img
-                src="/Gemini_Generated_userShop_closed.png"
+                src="/Gemini_Generated_userShop_open.png"
                 alt="Player Shop"
                 className="w-[90%] h-auto object-contain relative z-10"
             />
@@ -130,11 +233,11 @@ const CompetitorCafe = (props) => (
             />
 
             {/* LED Status Sign */}
-            <div className="absolute bottom-12 right-12 w-20 h-10 bg-[#111822] border-[3px] border-[#0a0e14] flex items-center justify-center shadow-lg z-30 px-1">
+            <div className="absolute top-[54px] left-1/2 -translate-x-1/2 w-20 h-10 bg-[#111822] border-[3px] border-[#0a0e14] flex items-center justify-center shadow-lg z-30 px-1">
                 {props.isPresent ? (
-                    <span className="text-[12px] text-[#4ade80] font-mono font-black uppercase tracking-wider animate-pulse drop-shadow-[0_0_6px_rgba(74,222,128,0.8)]">OPEN</span>
+                    <span className="text-[18px] text-[#4ade80] font-mono font-black uppercase tracking-wider animate-pulse drop-shadow-[0_0_6px_rgba(74,222,128,0.8)]">OPEN</span>
                 ) : (
-                    <span className="text-[10px] text-[#ef4444] font-mono font-black uppercase tracking-wider drop-shadow-[0_0_4px_rgba(239,68,68,0.6)]">CLOSED</span>
+                    <span className="text-[15px] text-[#ef4444] font-mono font-black uppercase tracking-wider drop-shadow-[0_0_4px_rgba(239,68,68,0.6)]">CLOSED</span>
                 )}
             </div>
         </div>
@@ -1126,6 +1229,265 @@ const ImagePedestrian2 = ({
     );
 };
 
+const ImagePedestrian3 = ({
+    left, bottom, scale = 1, delay = 0, zIndex = 1,
+    direction = 1, duration = 15, className = ""
+}) => {
+    const animId = React.useId().replace(/:/g, '');
+    const startX = left ? left : (direction === 1 ? '-10%' : '110%');
+    const endX = direction === 1 ? '110%' : '-10%';
+
+    const frames = [
+        "/person3/Gemini_Generated_person3_1.png",
+        "/person3/Gemini_Generated_person3_2.png",
+        "/person3/Gemini_Generated_person3_3.png",
+        "/person3/Gemini_Generated_person3_4.png",
+        "/person3/Gemini_Generated_person3_5.png"
+    ];
+
+    const frameCount = frames.length;
+    const walkDuration = 0.8;
+    const framePct = 100 / frameCount;
+
+    return (
+        <div
+            className={`absolute flex items-end justify-center ${className}`}
+            style={{
+                left: startX, bottom, zIndex,
+                transform: `scale(${scale * direction}, ${scale})`,
+                transformOrigin: 'bottom center',
+                animation: `walkAcrossImg3_${animId} ${duration}s linear infinite both`,
+                animationDelay: `${delay}s`
+            }}
+        >
+            <style>
+                {`
+                @keyframes walkAcrossImg3_${animId} {
+                    from { left: ${startX}; }
+                    to { left: ${endX}; }
+                }
+                .img-frame3-${animId} { opacity: 0; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); }
+                @keyframes img-play3-${animId} {
+                    0%, ${framePct + 2}% { opacity: 1; }
+                    ${framePct + 2.1}%, 100% { opacity: 0; }
+                }
+                `}
+            </style>
+
+            <div className="relative w-20 h-32">
+                {frames.map((src, idx) => (
+                    <img
+                        key={idx}
+                        src={src}
+                        alt={`Walking frame ${idx + 1}`}
+                        className={`img-frame3-${animId} w-full h-auto object-contain pointer-events-none`}
+                        style={{
+                            animation: `img-play3-${animId} ${walkDuration}s infinite`,
+                            animationDelay: `-${idx * (walkDuration / frameCount)}s`,
+                            filter: "drop-shadow(0px 3px 2px rgba(0,0,0,0.4))"
+                        }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ImagePedestrian4 = ({
+    left, bottom, scale = 1, delay = 0, zIndex = 1,
+    direction = 1, duration = 15, className = ""
+}) => {
+    const animId = React.useId().replace(/:/g, '');
+    const startX = left ? left : (direction === 1 ? '-10%' : '110%');
+    const endX = direction === 1 ? '110%' : '-10%';
+
+    const frames = [
+        "/person4/Gemini_Generated_person2_1.png",
+        "/person4/Gemini_Generated_person2_2.png",
+        "/person4/Gemini_Generated_person2_4.png",
+        "/person4/Gemini_Generated_person2_6.png"
+    ];
+
+    const frameCount = frames.length;
+    const walkDuration = 0.72;
+    const framePct = 100 / frameCount;
+
+    return (
+        <div
+            className={`absolute flex items-end justify-center ${className}`}
+            style={{
+                left: startX, bottom, zIndex,
+                transform: `scale(${scale * direction}, ${scale})`,
+                transformOrigin: 'bottom center',
+                animation: `walkAcrossImg4_${animId} ${duration}s linear infinite both`,
+                animationDelay: `${delay}s`
+            }}
+        >
+            <style>
+                {`
+                @keyframes walkAcrossImg4_${animId} {
+                    from { left: ${startX}; }
+                    to { left: ${endX}; }
+                }
+                .img-frame4-${animId} { opacity: 0; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); }
+                @keyframes img-play4-${animId} {
+                    0%, ${framePct + 2}% { opacity: 1; }
+                    ${framePct + 2.1}%, 100% { opacity: 0; }
+                }
+                `}
+            </style>
+
+            <div className="relative w-20 h-32">
+                {frames.map((src, idx) => (
+                    <img
+                        key={idx}
+                        src={src}
+                        alt={`Walking frame ${idx + 1}`}
+                        className={`img-frame4-${animId} w-full h-auto object-contain pointer-events-none`}
+                        style={{
+                            animation: `img-play4-${animId} ${walkDuration}s infinite`,
+                            animationDelay: `-${idx * (walkDuration / frameCount)}s`,
+                            filter: "drop-shadow(0px 3px 2px rgba(0,0,0,0.4))"
+                        }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ImagePedestrian5 = ({
+    left, bottom, scale = 1, delay = 0, zIndex = 1,
+    direction = 1, duration = 15, className = ""
+}) => {
+    const animId = React.useId().replace(/:/g, '');
+    const startX = left ? left : (direction === 1 ? '-10%' : '110%');
+    const endX = direction === 1 ? '110%' : '-10%';
+
+    const frames = [
+        "/person5/Gemini_Generated_person5_1.png",
+        "/person5/Gemini_Generated_person5_2.png",
+        "/person5/Gemini_Generated_person5_3.png",
+        "/person5/Gemini_Generated_person5_4.png",
+        "/person5/Gemini_Generated_person5_5.png"
+    ];
+
+    const frameCount = frames.length;
+    const walkDuration = 0.78;
+    const framePct = 100 / frameCount;
+
+    return (
+        <div
+            className={`absolute flex items-end justify-center ${className}`}
+            style={{
+                left: startX, bottom, zIndex,
+                transform: `scale(${scale * direction}, ${scale})`,
+                transformOrigin: 'bottom center',
+                animation: `walkAcrossImg5_${animId} ${duration}s linear infinite both`,
+                animationDelay: `${delay}s`
+            }}
+        >
+            <style>
+                {`
+                @keyframes walkAcrossImg5_${animId} {
+                    from { left: ${startX}; }
+                    to { left: ${endX}; }
+                }
+                .img-frame5-${animId} { opacity: 0; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); }
+                @keyframes img-play5-${animId} {
+                    0%, ${framePct + 2}% { opacity: 1; }
+                    ${framePct + 2.1}%, 100% { opacity: 0; }
+                }
+                `}
+            </style>
+
+            <div className="relative w-20 h-32">
+                {frames.map((src, idx) => (
+                    <img
+                        key={idx}
+                        src={src}
+                        alt={`Walking frame ${idx + 1}`}
+                        className={`img-frame5-${animId} w-full h-auto object-contain pointer-events-none`}
+                        style={{
+                            animation: `img-play5-${animId} ${walkDuration}s infinite`,
+                            animationDelay: `-${idx * (walkDuration / frameCount)}s`,
+                            filter: "drop-shadow(0px 3px 2px rgba(0,0,0,0.4))"
+                        }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ImageWalker = ({
+    frames, kind, left, bottom, scale = 1, delay = 0, zIndex = 1,
+    direction = 1, duration = 15, className = ""
+}) => {
+    const animId = React.useId().replace(/:/g, '');
+    const startX = left ? left : (direction === 1 ? '-10%' : '110%');
+    const endX = direction === 1 ? '110%' : '-10%';
+    const frameCount = frames.length;
+    const framePct = 100 / frameCount;
+    const walkerStyle = WALKER_KIND_STYLES[kind] ?? WALKER_KIND_STYLES.person;
+
+    if (frameCount === 0) {
+        return null;
+    }
+
+    return (
+        <div
+            className={`absolute flex items-end justify-center ${className}`}
+            style={{
+                left: startX, bottom, zIndex,
+                transform: `scale(${scale * direction}, ${scale})`,
+                transformOrigin: 'bottom center',
+                animation: `walkAcrossAuto_${animId} ${duration}s linear infinite both`,
+                animationDelay: `${delay}s`
+            }}
+        >
+            <style>
+                {`
+                @keyframes walkAcrossAuto_${animId} {
+                    from { left: ${startX}; }
+                    to { left: ${endX}; }
+                }
+                .img-auto-frame-${animId} { opacity: 0; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); }
+                @keyframes img-auto-play-${animId} {
+                    0%, ${framePct + 2}% { opacity: 1; }
+                    ${framePct + 2.1}%, 100% { opacity: 0; }
+                }
+                `}
+            </style>
+
+            <div className={`relative ${walkerStyle.frameBoxClass}`}>
+                {frames.map((src, idx) => (
+                    <img
+                        key={src}
+                        src={src}
+                        alt={`${kind} walking frame ${idx + 1}`}
+                        className={`img-auto-frame-${animId} w-full h-auto object-contain pointer-events-none`}
+                        style={{
+                            animation: `img-auto-play-${animId} ${walkerStyle.walkDuration}s infinite`,
+                            animationDelay: `-${idx * (walkerStyle.walkDuration / frameCount)}s`,
+                            filter: walkerStyle.shadowFilter
+                        }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+// Bottom baselines for the walking lanes.
+// Move these `bottom` values if you want to manually raise/lower each invisible line.
+const WALK_LANES = [
+    { id: 'front', bottom: '-50%', scaleMultiplier: 1.2, zIndex: 60 },
+    { id: 'frontMid', bottom: '-25%', scaleMultiplier: 1.1, zIndex: 59 },
+    { id: 'middle', bottom: '0%', scaleMultiplier: 1.0, zIndex: 58 },
+    { id: 'back', bottom: '16%', scaleMultiplier: 1.0, zIndex: 56 },
+];
+
 const PedestriansLayer = ({ children }) => (
 
 
@@ -1138,7 +1500,7 @@ const PedestriansLayer = ({ children }) => (
 
 // --- Main Component Assembly ---
 
-const CafeMap = ({ shopName = "Your Shop", weather = "Sunny", competitorPresent = true, userAvatar = 'Leo' }) => {
+const CafeMap = ({ weather = "Sunny", competitorPresent = true, userAvatar = 'Leo' }) => {
     const isCloudy = weather === "Cloudy" || weather === "Rainy";
     const isRainy = weather === "Rainy";
     const isSunny = weather === "Sunny";
@@ -1242,46 +1604,10 @@ const CafeMap = ({ shopName = "Your Shop", weather = "Sunny", competitorPresent 
             {/* Main Subject: The Shops! */}
             {/* Adjusted bottom to 12% to sit on the sidewalk, cleared from trees */}
             <CompetitorCafe left="3%" bottom="8%" scale={0.65} isPresent={competitorPresent} />
-            <PlayerCafe right="3%" bottom="12%" scale={0.75} shopName={shopName} />
+            <PlayerCafe right="3%" bottom="12%" scale={0.75} />
 
             {/* Pedestrians overlay accurately positioned on the footpath */}
             <PedestriansLayer>
-                {/* Always show the new person first with zero delay */}
-                <ImagePedestrian
-                    bottom="8%"
-                    scale={0.48}
-                    direction={1}
-                    delay={0}
-                    duration={14}
-                    zIndex={60}
-                />
-                <ImagePet
-                    bottom="10%"
-                    scale={0.56}
-                    direction={1}
-                    delay={0.5}
-                    duration={14}
-                    zIndex={59}
-                />
-                <ImageDog
-                    bottom="6%"
-                    scale={0.62}
-                    direction={1}
-                    delay={1.2}
-                    duration={14}
-                    zIndex={58}
-                />
-                <ImagePedestrian2
-                    bottom="13%"
-                    scale={0.42}
-                    direction={-1}
-                    delay={2.5}
-                    duration={16}
-                    zIndex={57}
-                />
-
-                {/* Dynamically generated crowd based on weather and events */}
-
                 {useMemo(() => {
                     // Seedable random generator for consistent crowd per state
                     const cyrb128 = (str) => {
@@ -1312,98 +1638,20 @@ const CafeMap = ({ shopName = "Your Shop", weather = "Sunny", competitorPresent 
                     // Add unique seed parameters to change the crowd when weather, events or competitor standing changes
                     const rand = sfc32(...cyrb128(`crowd_${weather}_${competitorPresent ? "comp_y" : "comp_n"}_someEvent`));
 
-                    // Base amount of people
-                    let amountToGen = 4;
-
-                    if (weather === 'Cloudy') amountToGen += 3;
-                    // Usually cloudy days are perceived as good walking days locally
-                    // Add more people if there is a local event (checking generic props context, but typically we don't have event in CafeMap props directly... wait, we need to add localEvents if passed or just increase randomly if we want more crowd on cloudy)
-                    // Let's make it 8 people for cloudy, 4 for sunny, 2 for rainy
-                    if (weather === 'Rainy') amountToGen = 2;
-                    else if (weather === 'Sunny') amountToGen = 5;
-                    else amountToGen = 8; // Cloudy
-
-                    // Add some random variation
-                    amountToGen += Math.floor(rand() * 3);
-
-                    // Generate lots of randomized configurations!
-                    const generatedVariants = Array.from({ length: 40 }).map((_, i) => {
-                        const styleRand = rand();
-
-                        // Only Image-based characters now
-                        if (styleRand < 0.4) return { type: "imagePedestrian" };
-                        if (styleRand < 0.7) return { type: "imagePedestrian2" };
-                        if (styleRand < 0.9) return { type: "imagePet" };
-                        return { type: "imageDog" };
-                    });
-
-                    return Array.from({ length: amountToGen }).map((_, i) => {
-                        const lanePresets = [
-                            { bottomBase: 6, scaleMultiplier: 1.0, zIndex: 60 },
-                            { bottomBase: 11, scaleMultiplier: 0.88, zIndex: 59 },
-                            { bottomBase: 16, scaleMultiplier: 0.78, zIndex: 58 }
-                        ];
-                        const entity = generatedVariants[Math.floor(rand() * generatedVariants.length)];
-                        const lane = lanePresets[Math.floor(rand() * lanePresets.length)];
-                        const laneJitter = (rand() - 0.5) * 1.8;
-                        const bottom = `${lane.bottomBase + laneJitter}%`;
-                        const isImgP = entity.type === "imagePedestrian";
-                        const isImgP2 = entity.type === "imagePedestrian2";
-                        const isImgD = entity.type === "imageDog";
-                        const baseScale = (isImgP || isImgP2 ? 0.38 : (isImgD ? 0.46 : 0.5)) + rand() * 0.1;
-                        const scale = baseScale * lane.scaleMultiplier;
-                        const direction = rand() > 0.5 ? 1 : -1;
-                        const delay = rand() * 15; // spread them out
-                        const duration = 12 + rand() * 8;
-
-                        if (entity.type === "imagePedestrian") {
-                            return (
-                                <ImagePedestrian
-                                    key={i}
-                                    bottom={bottom}
-                                    scale={scale}
-                                    direction={direction}
-                                    delay={delay}
-                                    duration={duration}
-                                    zIndex={lane.zIndex}
-                                />
-                            );
-                        }
-
-                        if (entity.type === "imagePedestrian2") {
-                            return (
-                                <ImagePedestrian2
-                                    key={i}
-                                    bottom={bottom}
-                                    scale={scale}
-                                    direction={direction}
-                                    delay={delay}
-                                    duration={duration}
-                                    zIndex={lane.zIndex}
-                                />
-                            );
-                        }
-
-                        if (entity.type === "imageDog") {
-                            return (
-                                <ImageDog
-                                    key={i}
-                                    bottom={bottom}
-                                    scale={scale}
-                                    direction={direction}
-                                    delay={delay}
-                                    duration={duration}
-                                    zIndex={lane.zIndex}
-                                />
-                            );
-                        }
+                    return AUTO_WALKER_VARIANTS.map((walker, i) => {
+                        const lane = WALK_LANES.find(({ id }) => id === walker.laneId) ?? WALK_LANES[0];
+                        const scaleVariance = 0.96 + rand() * 0.08;
+                        const delay = i * 0.9 + rand() * 0.25;
+                        const duration = walker.durationMin + rand() * walker.durationRange;
 
                         return (
-                            <ImagePet
-                                key={i}
-                                bottom={bottom}
-                                scale={scale}
-                                direction={direction}
+                            <ImageWalker
+                                key={walker.id}
+                                frames={walker.frames}
+                                kind={walker.kind}
+                                bottom={lane.bottom}
+                                scale={walker.baseScale * lane.scaleMultiplier * scaleVariance}
+                                direction={walker.direction}
                                 delay={delay}
                                 duration={duration}
                                 zIndex={lane.zIndex}

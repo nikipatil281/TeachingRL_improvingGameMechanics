@@ -23,8 +23,8 @@ const PrePhase2Transition = ({ onComplete, theme }) => {
     const HANDLE_WIDTH = 110;
     const MAX_SLIDE = SLIDER_WIDTH - HANDLE_WIDTH - 8;
 
-    const handleDragUpdate = (event, info) => {
-        // Optional drag behavior styling
+    const handleDragUpdate = () => {
+        // Reserved for future drag-driven UI tweaks.
     };
 
     const handleDragEnd = async (event, info) => {
@@ -62,7 +62,7 @@ const PrePhase2Transition = ({ onComplete, theme }) => {
             border: "border-purple-400/20",
             title: "The Ultimate Goal",
             icon: <Zap className="w-5 h-5" />,
-            text: "The main goal of this 28-day simulation is to truly understand how an Reinforcement Learning agent dynamically balances Exploring new options and Exploiting known strategies."
+            text: "The main goal of this 28-day simulation is to truly understand how an Reinforcement Learning agent dynamically balances Exploring new pricing options and Exploiting known strategies. Finally, learning the policies to maximise the cumulative rewards."
         }
     ];
 
