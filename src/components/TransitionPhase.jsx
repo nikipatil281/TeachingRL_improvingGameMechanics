@@ -21,7 +21,7 @@ const TransitionPhase = ({ onComplete, theme }) => {
   }, []);
 
   return (
-    <div className={`h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center relative overflow-y-auto transition-colors duration-500 ${theme}`}>
+    <div className={`h-full bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center relative overflow-hidden transition-colors duration-500 ${theme}`}>
       <style>
         {`
           .transition-loader {

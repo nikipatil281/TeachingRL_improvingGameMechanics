@@ -422,7 +422,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo'
   };
 
   return (
-    <div className={`h-screen bg-coffee-900 text-coffee-100 p-4 font-sans flex flex-col relative overflow-x-hidden overflow-y-auto transition-colors duration-500 ${theme}`}>
+    <div className={`h-full bg-coffee-900 text-coffee-100 p-4 font-sans flex flex-col relative overflow-hidden transition-colors duration-500 ${theme}`}>
       {/* Doodle Pattern Overlay */}
       <div className={`absolute inset-0 pointer-events-none bg-doodle-mask z-0 transition-all duration-500 ${theme === 'theme-black-coffee' ? 'bg-amber-100 opacity-[0.08] mix-blend-screen' : 'bg-amber-900 opacity-[0.15] mix-blend-luminosity'}`} />
 
@@ -432,9 +432,9 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo'
         <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-900/30 rounded-full blur-[120px] animate-blob [animation-delay:2s]" />
       </div>
 
-
+      <div className="relative z-10 flex flex-1 min-h-0 flex-col overflow-y-auto overscroll-contain pr-2">
       {/* Full-width distinct Header */}
-      <header className="w-full max-w-[95rem] mx-auto mb-4 bg-gradient-to-r from-coffee-800/80 to-transparent border-l-4 border-l-amber-500 rounded-r-xl border-y border-r border-coffee-700/30 p-3 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between relative z-10 gap-2">
+      <header className="w-full max-w-[95rem] mx-auto mb-4 bg-gradient-to-r from-coffee-800/80 to-transparent border-l-4 border-l-amber-500 rounded-r-xl border-y border-r border-coffee-700/30 p-3 shrink-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
         <div className="flex items-center gap-3 w-full overflow-hidden">
           <div className="flex items-center gap-2 shrink-0">
             <Coffee className="w-5 h-5 text-amber-500" />
@@ -458,7 +458,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo'
         </div>
       </header>
 
-      <div className="w-full max-w-[95rem] mx-auto flex gap-4 lg:gap-6 flex-grow min-h-0 relative z-10 pr-2">
+      <div className="w-full max-w-[95rem] mx-auto flex gap-4 lg:gap-6 flex-grow min-h-0">
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex flex-col gap-4 flex-grow min-h-0">
@@ -738,6 +738,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo'
           />
         )
       }
+      </div>
     </div >
   );
 };

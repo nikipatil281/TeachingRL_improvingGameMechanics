@@ -76,7 +76,7 @@ const PrePhase2Transition = ({
     ];
 
     return (
-        <div className={`h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-2 md:p-8 relative overflow-y-auto transition-colors duration-500 ${theme}`}>
+        <div className={`h-full bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-2 md:p-8 relative overflow-hidden transition-colors duration-500 ${theme}`}>
 
             <div className="absolute right-4 top-4 z-20 flex items-center gap-3 md:right-8 md:top-8">
                 <BackendStatusButton
@@ -104,7 +104,7 @@ const PrePhase2Transition = ({
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="z-10 w-full max-w-[95vw] lg:max-w-5xl p-2 md:p-8"
+                className="z-10 w-full max-w-[95vw] lg:max-w-5xl p-2 md:p-8 max-h-full overflow-y-auto overscroll-contain"
             >
                 <div className="text-center mb-8">
                     <motion.div

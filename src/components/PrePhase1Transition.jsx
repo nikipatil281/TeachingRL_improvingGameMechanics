@@ -95,7 +95,7 @@ const PrePhase1Transition = ({ onComplete, onBackToStory, theme }) => {
     ];
 
     return (
-        <div className={`h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-y-auto transition-colors duration-500 ${theme}`}>
+        <div className={`h-full bg-coffee-900 text-coffee-100 flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden transition-colors duration-500 ${theme}`}>
 
             {/* Background Decor */}
             <div className={`absolute inset-0 pointer-events-none transition-opacity duration-500 ${theme === 'theme-black-coffee' ? 'opacity-40 mix-blend-screen' : 'opacity-40 mix-blend-color-burn'}`}>
@@ -106,7 +106,7 @@ const PrePhase1Transition = ({ onComplete, onBackToStory, theme }) => {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="z-10 w-full max-w-[90rem] p-4 md:p-8"
+                className="z-10 w-full max-w-[90rem] p-4 md:p-8 max-h-full overflow-y-auto overscroll-contain"
             >
                 <div className="text-center mb-8">
                     {onBackToStory && (
