@@ -873,9 +873,9 @@ const Dashboard = ({
 
                 {/* Top Row: Chart (moved from below so it sits at the top of the right column!) */}
                 {/* Wait, user asked to separate ML box and insight box. Let's arrange them side by side. */}
-                <div className="flex flex-row gap-4 h-[180px]">
+                <div className="flex flex-row gap-4 h-[180px] min-w-0">
                    {/* Insight 1: ML Suggestion (Sequential RF) */}
-                  <div className={`w-[42%] p-4 bg-coffee-800/80 rounded-xl shadow-2xl border ${mlReady ? 'border-amber-500/50' : 'border-coffee-700 opacity-50'} flex flex-col justify-between relative overflow-hidden transition-all duration-300 ${mutedPanelClass}`}>
+                  <div className={`min-w-0 flex-[42] p-4 bg-coffee-800/80 rounded-xl shadow-2xl border ${mlReady ? 'border-amber-500/50' : 'border-coffee-700 opacity-50'} flex flex-col justify-between relative overflow-hidden transition-all duration-300 ${mutedPanelClass}`}>
                     <div className={`absolute inset-0 ${mlReady ? 'bg-amber-500/5' : 'bg-blue-900/5'} mix-blend-overlay pointer-events-none`} />
                     <div className="absolute top-3 right-3 z-10 w-11 h-11">
                       <img src={mlAvatarUri} alt="ML Agent Avatar" className="w-full h-full object-contain" />
@@ -902,7 +902,7 @@ const Dashboard = ({
                   </div>
 
                   {/* Insight 2: Realized Profit Yesterday or Popup */}
-                  <div className="w-[58%] p-0 flex flex-col relative bg-coffee-800/80 rounded-xl shadow-2xl border border-coffee-700 overflow-hidden">
+                  <div className="min-w-0 flex-[58] p-0 flex flex-col relative bg-coffee-800/80 rounded-xl shadow-2xl border border-coffee-700 overflow-hidden">
                     <AnimatePresence mode="wait">
                       {showPopup && feedback ? (
                         <motion.div
