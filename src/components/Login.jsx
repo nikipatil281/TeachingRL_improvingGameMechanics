@@ -18,7 +18,7 @@ const Login = ({ onJoin, theme, toggleTheme, userName }) => {
   };
 
   return (
-    <div className={`h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center p-4 md:p-8 relative overflow-hidden transition-colors duration-500 ${theme}`}>
+    <div className={`min-h-screen bg-coffee-900 text-coffee-100 flex flex-col items-center p-4 md:p-8 relative overflow-x-hidden overflow-y-auto transition-colors duration-500 ${theme}`}>
 
       {/* Theme Toggle Button */}
       <div className="absolute top-4 right-4 md:top-8 md:right-8 z-20">

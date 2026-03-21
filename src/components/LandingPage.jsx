@@ -117,7 +117,7 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
         <div className="w-full max-w-6xl bg-coffee-800/50 backdrop-blur-xl border border-coffee-700/50 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row h-auto md:h-full md:max-h-[820px]">
 
         {/* Image / Visual Side */}
-        <div className={`w-full md:w-1/2 relative bg-gradient-to-br ${currentStory.color} flex items-center justify-center p-8 md:p-12 md:min-h-0`}>
+        <div className={`w-full md:w-1/2 relative bg-gradient-to-br ${currentStory.color} flex items-center justify-center p-8 md:p-12 md:min-h-0 ${step === 3 ? 'overflow-y-auto' : ''}`}>
           <AnimatePresence mode="wait">
             {!currentStory.isEnd ? (
               <motion.img
@@ -127,14 +127,16 @@ const LandingPage = ({ onComplete, theme, toggleTheme }) => {
                 animate={{ scale: 1, opacity: 1, rotate: 0 }}
                 exit={{ scale: 1.1, opacity: 0, rotate: 5 }}
                 transition={{ type: "spring", damping: 15 }}
-                className="w-full h-full object-cover drop-shadow-2xl rounded-3xl"
+                className={step === 3
+                  ? "w-full h-auto max-w-full self-start drop-shadow-2xl rounded-3xl"
+                  : "w-full h-full object-cover drop-shadow-2xl rounded-3xl"}
               />
             ) : (
               <motion.div
                 key="goals"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col gap-6 w-full max-w-md"
+                className="flex max-h-full w-full max-w-md flex-col gap-6 overflow-y-auto pr-2"
               >
                 <div className="grid gap-4">
                   {currentStory.goals.map((goal, i) => (

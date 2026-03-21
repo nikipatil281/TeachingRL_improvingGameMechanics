@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
     BaseEdge,
     Background,
@@ -7,6 +7,7 @@ import {
     MarkerType,
     Position,
     ReactFlow,
+    ViewportPortal,
 } from '@xyflow/react';
 import {
     Bot,
@@ -210,7 +211,7 @@ const LIGHT_TONE_OVERRIDES = {
 const GROUP_STYLES = {
     stone: {
         shell: 'border-coffee-500/45 bg-coffee-900/30',
-        label: 'border-coffee-400/30 bg-coffee-950/65 text-coffee-50',
+        label: 'border-coffee-500/45 bg-transparent text-coffee-50',
         title: 'text-coffee-50',
         eyebrow: 'text-coffee-300/80',
         body: 'text-coffee-200/80',
@@ -218,7 +219,7 @@ const GROUP_STYLES = {
     },
     emerald: {
         shell: 'border-emerald-400/30 bg-emerald-500/[0.05]',
-        label: 'border-emerald-400/25 bg-emerald-950/35 text-emerald-50',
+        label: 'border-emerald-400/30 bg-transparent text-emerald-50',
         title: 'text-emerald-50',
         eyebrow: 'text-emerald-200/80',
         body: 'text-emerald-100/80',
@@ -229,15 +230,15 @@ const GROUP_STYLES = {
 const LIGHT_GROUP_OVERRIDES = {
     stone: {
         shell: 'border-coffee-700/58 bg-white/90 shadow-[inset_0_0_0_1px_rgba(120,53,15,0.06)]',
-        label: 'border-coffee-700/50 bg-coffee-950/88 text-coffee-50 shadow-[0_16px_34px_rgba(41,28,20,0.16)]',
-        title: 'text-coffee-50',
-        eyebrow: 'text-coffee-100/88',
-        body: 'text-coffee-100/90',
-        iconWrap: 'border-coffee-300/28 bg-coffee-100/12 text-coffee-50',
+        label: 'border-coffee-700/58 bg-transparent text-coffee-950',
+        title: 'text-coffee-950',
+        eyebrow: 'text-coffee-900/78',
+        body: 'text-coffee-950/84',
+        iconWrap: 'border-coffee-300/28 bg-coffee-100/12 text-coffee-900',
     },
     emerald: {
         shell: 'border-emerald-700/56 bg-emerald-50/88 shadow-[inset_0_0_0_1px_rgba(5,150,105,0.06)]',
-        label: 'border-emerald-700/35 bg-emerald-50/98 text-emerald-950',
+        label: 'border-emerald-700/56 bg-transparent text-emerald-950',
         title: 'text-emerald-950',
         eyebrow: 'text-emerald-900/82',
         body: 'text-emerald-950/92',
@@ -246,6 +247,12 @@ const LIGHT_GROUP_OVERRIDES = {
 };
 
 const PipelineThemeContext = createContext({ isLight: false });
+const SharedDetailContext = createContext({
+    activeKey: null,
+    setActiveKey: () => {},
+    pinnedKey: null,
+    setPinnedKey: () => {},
+});
 
 const HANDLE_CLASS = '!h-3 !w-3 !border-0 !bg-transparent !opacity-0 !pointer-events-none';
 
@@ -287,22 +294,42 @@ const ACTION_DETAILS = [
     },
 ];
 
+const SEQUENTIAL_ENVIRONMENT_ALGORITHMS = [
+    'Epsilon-Greedy',
+    'Q-Learning',
+    'SARSA',
+    'PPO',
+    'DQN',
+    'DDQN',
+    'REINFORCE',
+];
+
+const SEQUENTIAL_ENVIRONMENT_POPUP_POSITION = {
+    container: 'absolute left-full top-[1px] z-[300] ml-40 w-[500px] isolate',
+    sequentialConnectorSvg: 'pointer-events-none absolute left-full top-[12px] z-[290] h-[64px] w-[162px]',
+    environmentConnectorSvg: 'pointer-events-none absolute left-full top-[18px] z-[290] h-[180px] w-[272px]',
+};
+
 const DESKTOP_NODES = [
     {
         id: 'sequential-learning',
         type: 'groupBox',
+        zIndex: 30,
         position: { x: 40, y: 24 },
         data: {
             title: 'Sequential Learning',
             description: 'The agent improves by repeating this learning loop over many decisions and outcomes.',
             tone: 'stone',
             icon: RefreshCw,
+            sharedDetailKey: 'sequence-environment-algorithms',
+            sharedDetailAnchor: true,
         },
-        style: { width: 1620, height: 1120 },
+        style: { width: 1620, height: 1050 },
     },
     {
         id: 'environment',
         type: 'groupBox',
+        zIndex: 20,
         parentId: 'sequential-learning',
         extent: 'parent',
         position: { x: 40, y: 128 },
@@ -311,6 +338,7 @@ const DESKTOP_NODES = [
             description: 'The environment is the world the agent interacts with while making pricing decisions.',
             tone: 'emerald',
             icon: Store,
+            sharedDetailKey: 'sequence-environment-algorithms',
         },
         style: { width: 1540, height: 690 },
     },
@@ -390,7 +418,8 @@ const DESKTOP_NODES = [
     {
         id: 'policy',
         type: 'card',
-        position: { x: 1100, y: 970 },
+        zIndex: 60,
+        position: { x: 1100, y: 900 },
         data: {
             title: 'Policy',
             description: 'The policy stores what the agent has learned so far about which actions work best in each state. In this app, the deployed RL system is trained with DQN.',
@@ -612,27 +641,165 @@ const CurvedConnectorTopRight = () => (
     </svg>
 );
 
-const GroupNode = ({ data }) => {
+const SequentialEnvironmentPopup = ({ anchorX, anchorY, anchorWidth }) => {
     const { isLight } = useContext(PipelineThemeContext);
+    const popupClass = isLight
+        ? 'border-coffee-700/52 bg-white/86 shadow-[inset_0_0_0_1px_rgba(120,53,15,0.06),0_20px_44px_rgba(41,28,20,0.14)] backdrop-blur-md'
+        : 'border-coffee-500/45 bg-coffee-900/28 shadow-xl shadow-coffee-950/20 backdrop-blur-md';
+
+    return (
+        <ViewportPortal>
+            <div
+                className="absolute left-0 top-0 z-[400] pointer-events-none"
+                style={{
+                    transform: `translate(${anchorX}px, ${anchorY}px)`,
+                    width: anchorWidth,
+                }}
+            >
+                <div className="relative w-full">
+                    <svg
+                        className={SEQUENTIAL_ENVIRONMENT_POPUP_POSITION.sequentialConnectorSvg}
+                        viewBox="0 0 162 64"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <path
+                            d="M4 22 C30 22 54 22 82 22 C110 22 134 22 158 22"
+                            stroke="rgba(214,188,170,0.55)"
+                            strokeWidth="2"
+                            strokeDasharray="6 6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                    </svg>
+                    <svg
+                        className={SEQUENTIAL_ENVIRONMENT_POPUP_POSITION.environmentConnectorSvg}
+                        viewBox="0 0 272 180"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <path
+                            d="M192 18 C146 18 108 28 78 48 C42 72 20 100 18 110"
+                            stroke="rgba(214,188,170,0.55)"
+                            strokeWidth="2"
+                            strokeDasharray="6 6"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
+                    </svg>
+                    <div className={`${SEQUENTIAL_ENVIRONMENT_POPUP_POSITION.container} rounded-[26px] border p-4 ${popupClass}`}>
+                        <div className="flex items-start gap-3">
+                            <div style={{ color: isLight ? '#1f1612' : '#f5e7d6' }}>
+                                <div
+                                    className="mt-1 text-sm font-bold"
+                                    style={{ color: isLight ? '#1f1612' : '#f5e7d6' }}
+                                >
+                                    RL Algorithm Choices
+                                </div>
+                            </div>
+                        </div>
+
+                        <p className={`mt-3 text-[11px] leading-relaxed ${isLight ? 'text-coffee-900/88' : 'text-coffee-100/85'}`}>
+                            Based on the environment type and task structure, different RL algorithms can be used to perform sequential learning over repeated interactions.
+                        </p>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {SEQUENTIAL_ENVIRONMENT_ALGORITHMS.map((algorithm) => (
+                                <span
+                                    key={algorithm}
+                                    className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${isLight ? 'border-coffee-700/25 bg-coffee-100 text-coffee-950' : 'border-coffee-400/30 bg-coffee-400/10 text-coffee-50'}`}
+                                >
+                                    {algorithm}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </ViewportPortal>
+    );
+};
+
+const GroupNode = ({ data, positionAbsoluteX = 0, positionAbsoluteY = 0 }) => {
+    const { isLight } = useContext(PipelineThemeContext);
+    const { activeKey, setActiveKey, pinnedKey, setPinnedKey } = useContext(SharedDetailContext);
     const styles = isLight
         ? { ...GROUP_STYLES[data.tone], ...(LIGHT_GROUP_OVERRIDES[data.tone] || {}) }
         : GROUP_STYLES[data.tone];
     const Icon = data.icon;
+    const hasSharedDetail = Boolean(data.sharedDetailKey);
+    const isSharedDetailOpen = hasSharedDetail && (activeKey === data.sharedDetailKey || pinnedKey === data.sharedDetailKey);
+    const labelRef = useRef(null);
+    const [labelWidth, setLabelWidth] = useState(0);
+
+    useEffect(() => {
+        if (!data.sharedDetailAnchor || !labelRef.current) return undefined;
+
+        const updateLabelWidth = () => {
+            if (labelRef.current) {
+                setLabelWidth(labelRef.current.offsetWidth);
+            }
+        };
+
+        updateLabelWidth();
+
+        const observer = new ResizeObserver(updateLabelWidth);
+        observer.observe(labelRef.current);
+
+        return () => observer.disconnect();
+    }, [data.sharedDetailAnchor]);
 
     return (
-        <div className={`relative h-full w-full overflow-visible rounded-[34px] border ${styles.shell}`}>
+        <div
+            className={`relative h-full w-full overflow-visible rounded-[34px] border ${styles.shell} ${data.sharedDetailAnchor && isSharedDetailOpen ? 'z-[200]' : ''}`}
+            style={data.sharedDetailAnchor && isSharedDetailOpen ? { zIndex: 200 } : undefined}
+        >
             {renderHandles()}
-            <div className={`absolute left-5 top-4 max-w-xs rounded-[18px] border px-3.5 py-2.5 shadow-xl backdrop-blur ${styles.label}`}>
-                <div className="flex items-start justify-between gap-3">
-                    <div>
-                        <div className={`text-sm font-bold ${styles.title}`}>{data.title}</div>
+            <div
+                ref={data.sharedDetailAnchor ? labelRef : null}
+                className={`absolute left-5 top-4 max-w-xs rounded-[18px] border-[0.1px] px-3.5 py-2.5 ${styles.label} ${data.sharedDetailAnchor && isSharedDetailOpen ? 'z-[220]' : ''}`}
+                onPointerEnter={hasSharedDetail ? () => setActiveKey(data.sharedDetailKey) : undefined}
+                onPointerLeave={hasSharedDetail ? () => setActiveKey((current) => (current === data.sharedDetailKey ? null : current)) : undefined}
+                onFocus={hasSharedDetail ? () => setActiveKey(data.sharedDetailKey) : undefined}
+                onBlur={hasSharedDetail ? () => setActiveKey((current) => (current === data.sharedDetailKey ? null : current)) : undefined}
+                style={hasSharedDetail ? { pointerEvents: 'all', zIndex: data.sharedDetailAnchor && isSharedDetailOpen ? 220 : undefined } : undefined}
+            >
+                <button
+                    type="button"
+                    onClick={hasSharedDetail ? () => setPinnedKey((current) => (current === data.sharedDetailKey ? null : data.sharedDetailKey)) : undefined}
+                    className={`w-full text-left ${hasSharedDetail ? 'nodrag nopan nowheel rounded-[14px] focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-coffee-950' : 'pointer-events-none'}`}
+                >
+                    <div className="flex items-start justify-between gap-3">
+                        <div>
+                            <div
+                                className={`text-sm font-bold ${styles.title}`}
+                                style={isLight ? { color: data.tone === 'stone' ? '#1f1612' : '#083a33' } : undefined}
+                            >
+                                {data.title}
+                            </div>
+                        </div>
+                        <div
+                            className={`rounded-2xl border p-1.5 ${styles.iconWrap}`}
+                            style={isLight && data.tone === 'stone' ? { color: '#1f1612' } : undefined}
+                        >
+                            <Icon className="h-4 w-4" />
+                        </div>
                     </div>
-                    <div className={`rounded-2xl border p-1.5 ${styles.iconWrap}`}>
-                        <Icon className="h-4 w-4" />
-                    </div>
-                </div>
-                <p className={`mt-1.5 text-[11px] leading-relaxed ${styles.body}`}>{data.description}</p>
+                    <p
+                        className={`mt-1.5 text-[11px] leading-relaxed ${styles.body}`}
+                        style={isLight ? { color: data.tone === 'stone' ? 'rgba(31,22,18,0.84)' : 'rgba(8,58,51,0.92)' } : undefined}
+                    >
+                        {data.description}
+                    </p>
+                </button>
             </div>
+            {data.sharedDetailAnchor && isSharedDetailOpen && labelWidth > 0 ? (
+                <SequentialEnvironmentPopup
+                    anchorX={positionAbsoluteX + 20}
+                    anchorY={positionAbsoluteY + 16}
+                    anchorWidth={labelWidth}
+                />
+            ) : null}
         </div>
     );
 };
@@ -826,35 +993,39 @@ const MobileFlow = () => (
 
 const RLPipelineFlow = ({ theme }) => {
     const isLight = theme === 'theme-latte';
+    const [activeKey, setActiveKey] = useState(null);
+    const [pinnedKey, setPinnedKey] = useState(null);
 
     return (
         <PipelineThemeContext.Provider value={{ isLight }}>
-            <div className="w-full">
-                <MobileFlow />
+            <SharedDetailContext.Provider value={{ activeKey, setActiveKey, pinnedKey, setPinnedKey }}>
+                <div className="w-full">
+                    <MobileFlow />
 
-                <div className={`rl-pipeline-surface rl-pipeline-flow relative hidden h-[750px] w-full overflow-hidden rounded-[28px] border md:block ${isLight ? 'border-coffee-500/45' : 'border-coffee-700/60'}`}>
-                    <ReactFlow
-                        nodes={DESKTOP_NODES}
-                        edges={DESKTOP_EDGES}
-                        nodeTypes={nodeTypes}
-                        edgeTypes={edgeTypes}
-                        fitView
-                        fitViewOptions={{ padding: 0.1, maxZoom: 0.95 }}
-                        nodesDraggable={false}
-                        nodesConnectable={false}
-                        elementsSelectable={false}
-                        preventScrolling={false}
-                        zoomOnDoubleClick={false}
-                        colorMode={isLight ? 'light' : 'dark'}
-                        className="h-full w-full bg-transparent"
-                        style={{ width: '100%', height: '100%' }}
-                    >
-                        <Background gap={24} size={1} color={isLight ? 'rgba(62,39,35,0.08)' : 'rgba(255,255,255,0.05)'} />
-                        <Background gap={120} size={1.2} color={isLight ? 'rgba(62,39,35,0.12)' : 'rgba(255,255,255,0.08)'} />
-                        <Controls className="rl-pipeline-controls" />
-                    </ReactFlow>
+                    <div className={`rl-pipeline-surface rl-pipeline-flow relative hidden h-[750px] w-full overflow-hidden rounded-[28px] border md:block ${isLight ? 'border-coffee-500/45' : 'border-coffee-700/60'}`}>
+                        <ReactFlow
+                            nodes={DESKTOP_NODES}
+                            edges={DESKTOP_EDGES}
+                            nodeTypes={nodeTypes}
+                            edgeTypes={edgeTypes}
+                            fitView
+                            fitViewOptions={{ padding: 0.1, maxZoom: 0.95 }}
+                            nodesDraggable={false}
+                            nodesConnectable={false}
+                            elementsSelectable={false}
+                            preventScrolling={false}
+                            zoomOnDoubleClick={false}
+                            colorMode={isLight ? 'light' : 'dark'}
+                            className="h-full w-full bg-transparent"
+                            style={{ width: '100%', height: '100%' }}
+                        >
+                            <Background gap={24} size={1} color={isLight ? 'rgba(62,39,35,0.08)' : 'rgba(255,255,255,0.05)'} />
+                            <Background gap={120} size={1.2} color={isLight ? 'rgba(62,39,35,0.12)' : 'rgba(255,255,255,0.08)'} />
+                            <Controls className="rl-pipeline-controls" />
+                        </ReactFlow>
+                    </div>
                 </div>
-            </div>
+            </SharedDetailContext.Provider>
         </PipelineThemeContext.Provider>
     );
 };
