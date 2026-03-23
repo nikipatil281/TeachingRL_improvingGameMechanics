@@ -27,7 +27,7 @@ const TUTORIAL_DAYS = {
   7: { day: 'Sunday', weather: 'Rainy', nearbyEvent: false, eventName: null, competitorPresent: false, competitorPrice: null, specialEvent: 'Competitor electricity out.' }
 };
 
-const COMPACT_TUTORIAL_WIDTH = 1180;
+const COMPACT_TUTORIAL_WIDTH = 1080;
 const COMPACT_TUTORIAL_HEIGHT = 820;
 
 const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo', backendStatus }) => {
