@@ -47,7 +47,7 @@ const createInitialPolicyQuizState = () => ({
   nextScenarioId: 2,
 });
 
-const COMPACT_DASHBOARD_WIDTH = 1080;
+const COMPACT_DASHBOARD_WIDTH = 1160;
 const COMPACT_DASHBOARD_HEIGHT = 820;
 
 const SessionLeaveConfirmModal = ({ isOpen, actionLabel, onCancel, onConfirm }) => {
