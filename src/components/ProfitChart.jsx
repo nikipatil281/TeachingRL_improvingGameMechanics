@@ -572,7 +572,7 @@ const ProfitChart = ({ data, showRLAgents = true, showMLAgent = true, hideRLLine
                                         </th>
                                         <th className="p-0 text-center">
                                             <div className="relative group inline-block p-3 hover:bg-coffee-700/50 rounded transition-colors cursor-help">
-                                                <CloudSun className="w-4 h-4 mx-auto text-blue-300" />
+                                                <Cloud className="w-4 h-4 mx-auto text-blue-300" />
                                                 <div className="absolute opacity-0 group-hover:opacity-100 bg-coffee-900 border border-coffee-600 text-coffee-100 text-[10px] py-1.5 px-3 rounded top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none transition-opacity duration-200 z-[60] shadow-xl">Weather</div>
                                             </div>
                                         </th>

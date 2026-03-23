@@ -48,7 +48,6 @@ const createInitialPolicyQuizState = () => ({
 });
 
 const COMPACT_DASHBOARD_WIDTH = 1160;
-const COMPACT_DASHBOARD_HEIGHT = 820;
 
 const SessionLeaveConfirmModal = ({ isOpen, actionLabel, onCancel, onConfirm }) => {
   if (!isOpen) return null;
@@ -166,7 +165,7 @@ const Dashboard = ({
   const [pendingLeaveAction, setPendingLeaveAction] = useState(null);
   const [useCompactDashboardLayout, setUseCompactDashboardLayout] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.innerWidth < COMPACT_DASHBOARD_WIDTH || window.innerHeight < COMPACT_DASHBOARD_HEIGHT;
+    return window.innerWidth < COMPACT_DASHBOARD_WIDTH;
   });
   const mutedPanelClass = showPopup
     ? "opacity-55 grayscale brightness-75"
@@ -624,7 +623,7 @@ const Dashboard = ({
   useEffect(() => {
     const updateDashboardViewport = () => {
       setUseCompactDashboardLayout(
-        window.innerWidth < COMPACT_DASHBOARD_WIDTH || window.innerHeight < COMPACT_DASHBOARD_HEIGHT
+        window.innerWidth < COMPACT_DASHBOARD_WIDTH
       );
     };
 

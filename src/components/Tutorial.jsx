@@ -28,7 +28,6 @@ const TUTORIAL_DAYS = {
 };
 
 const COMPACT_TUTORIAL_WIDTH = 1160;
-const COMPACT_TUTORIAL_HEIGHT = 820;
 
 const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo', backendStatus }) => {
   const DEFAULT_PLAYER_PRICE = 1;
@@ -37,7 +36,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo'
   const [playerPrice, setPlayerPrice] = useState(DEFAULT_PLAYER_PRICE);
   const [useCompactTutorialLayout, setUseCompactTutorialLayout] = useState(() => {
     if (typeof window === "undefined") return false;
-    return window.innerWidth < COMPACT_TUTORIAL_WIDTH || window.innerHeight < COMPACT_TUTORIAL_HEIGHT;
+    return window.innerWidth < COMPACT_TUTORIAL_WIDTH;
   });
 
   // Weekly starting inventory
@@ -95,7 +94,7 @@ const Tutorial = ({ onComplete, theme, toggleTheme, shopName, userAvatar = 'Leo'
   useEffect(() => {
     const updateTutorialViewport = () => {
       setUseCompactTutorialLayout(
-        window.innerWidth < COMPACT_TUTORIAL_WIDTH || window.innerHeight < COMPACT_TUTORIAL_HEIGHT
+        window.innerWidth < COMPACT_TUTORIAL_WIDTH
       );
     };
 
