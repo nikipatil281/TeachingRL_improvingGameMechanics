@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ClipboardCheck, Sun, Moon, CheckCircle2, LogOut, PlusCircle, Trash2, XCircle, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ClipboardCheck, Sun, Moon, CheckCircle2, LogOut, PlusCircle, Trash2, XCircle, RotateCcw } from 'lucide-react';
 import { rlAgent } from '../logic/RLAgent';
 
 const POLICY_QUESTIONS = [
@@ -185,16 +185,11 @@ const getScenarioEvaluation = (scenario) => {
   };
 };
 
-const feedbackClassNames = {
-  emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100',
-  amber: 'border-amber-500/30 bg-amber-500/10 text-amber-100',
-  rose: 'border-rose-500/30 bg-rose-500/10 text-rose-100',
-};
-
 const PolicyQuizPage = ({
   theme,
   toggleTheme,
   onBackToPolicyReview,
+  onMeetCreators,
   onRestart,
   onExitToLogin,
   quizState,
@@ -230,6 +225,32 @@ const PolicyQuizPage = ({
   const scenarioScore = useMemo(() => {
     return scenarioResults.reduce((total, result) => total + (result.isCorrect ? 1 : 0), 0);
   }, [scenarioResults]);
+
+  const feedbackClassNames = useMemo(() => (
+    theme === 'theme-latte'
+      ? {
+          emerald: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+          amber: 'border-amber-300 bg-amber-50 text-amber-900',
+          rose: 'border-rose-300 bg-rose-50 text-rose-900',
+        }
+      : {
+          emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100',
+          amber: 'border-amber-500/30 bg-amber-500/10 text-amber-100',
+          rose: 'border-rose-500/30 bg-rose-500/10 text-rose-100',
+        }
+  ), [theme]);
+
+  const submittedSummaryClassName = theme === 'theme-latte'
+    ? 'relative overflow-hidden flex items-start gap-3 rounded-xl border border-emerald-300 bg-gradient-to-br from-emerald-100 via-emerald-50 to-amber-50 px-4 py-3 text-sm text-emerald-950 shadow-[0_0_30px_rgba(16,185,129,0.10)]'
+    : 'relative overflow-hidden flex items-start gap-3 rounded-xl border border-emerald-400/40 bg-gradient-to-br from-emerald-500/16 via-emerald-500/10 to-amber-400/10 px-4 py-3 text-sm text-emerald-100 shadow-[0_0_30px_rgba(16,185,129,0.16)]';
+
+  const submittedSummaryHintClassName = theme === 'theme-latte'
+    ? 'mt-1 text-emerald-800/80'
+    : 'text-emerald-200/80 mt-1';
+
+  const submittedSummaryIconClassName = theme === 'theme-latte'
+    ? 'w-5 h-5 mt-0.5 text-emerald-600'
+    : 'w-5 h-5 mt-0.5 text-emerald-300';
 
   const updateQuizState = (updater) => {
     setQuizState((previous) => (typeof updater === 'function' ? updater(previous) : updater));
@@ -521,7 +542,7 @@ const PolicyQuizPage = ({
                 initial={{ opacity: 0, y: 10, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.35, ease: 'easeOut' }}
-                className="relative overflow-hidden flex items-start gap-3 rounded-xl border border-emerald-400/40 bg-gradient-to-br from-emerald-500/16 via-emerald-500/10 to-amber-400/10 px-4 py-3 text-sm text-emerald-100 shadow-[0_0_30px_rgba(16,185,129,0.16)]"
+                className={submittedSummaryClassName}
               >
                 <motion.div
                   aria-hidden="true"
@@ -582,14 +603,14 @@ const PolicyQuizPage = ({
                   transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
                   className="relative z-10"
                 >
-                  <CheckCircle2 className="w-5 h-5 mt-0.5 text-emerald-300" />
+                  <CheckCircle2 className={submittedSummaryIconClassName} />
                 </motion.div>
                 <div>
                   <p className="font-semibold">Quiz submitted. Nice work!</p>
                   <p>Thank you for taking the time to finish the quiz.</p>
                   <p>You got <span className="font-semibold">{mcqScore} out of {ALL_QUESTIONS.length}</span> multiple-choice questions correct.</p>
                   <p>Your scenario-check answers matched the RL policy on <span className="font-semibold">{scenarioScore} out of {scenarios.length}</span> case{scenarios.length === 1 ? '' : 's'}.</p>
-                  <p className="text-emerald-200/80 mt-1">Your answers are now locked in, but you can still scroll through the quiz and review the feedback for each question.</p>
+                  <p className={submittedSummaryHintClassName}>Your answers are now locked in, but you can still scroll through the quiz and review the feedback for each question.</p>
                 </div>
               </motion.div>
             </div>
@@ -597,7 +618,7 @@ const PolicyQuizPage = ({
         </div>
 
         <div className="pt-2">
-          <div className="flex flex-col gap-3 md:relative md:min-h-[44px] md:flex-row md:items-center md:justify-between">
+          <div className={`flex flex-col gap-3 md:flex-row md:items-center ${submitted ? 'md:justify-between' : 'md:relative md:min-h-[44px] md:justify-between'}`}>
             <motion.button
               type="button"
               whileHover={{ scale: submitted ? 1 : 1.05, x: submitted ? 0 : -5 }}
@@ -609,13 +630,26 @@ const PolicyQuizPage = ({
               Back to Policy Review
             </motion.button>
 
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:ml-auto">
+            <div className={`flex flex-col gap-3 md:flex-row md:items-center ${submitted ? '' : 'md:ml-auto'}`}>
+              {submitted && (
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.05, x: 5 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onMeetCreators}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-coffee-950 font-semibold transition-colors shadow-lg shadow-amber-900/20"
+                >
+                  Meet the Creators
+                  <ArrowRight className="w-4 h-4" />
+                </motion.button>
+              )}
+
               <motion.button
                 type="button"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={onRestart}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors shadow-lg shadow-emerald-900/20 md:absolute md:left-1/2 md:top-0 md:-translate-x-1/2"
+                className={`inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition-colors shadow-lg shadow-emerald-900/20 ${submitted ? '' : 'md:absolute md:left-1/2 md:top-0 md:-translate-x-1/2'}`}
               >
                 <RotateCcw className="w-4 h-4" />
                 Run Simulation Again
